@@ -274,15 +274,15 @@ Sync queue for operations when offline. Conflict resolution with multiple strate
 - ✅ 4 integration tests (complete flows)
 - ✅ Manual test checklist
 
-## 👩‍💻 Developers
+## 👩‍💻 Team
 
 **Section: BSCS 3B**
 
 | Name | Role |
 |------|------|
 | Gracielle Ann Villamer | Developer |
-| Feliah Hadassah Salvamante | Developer |
-| Marriet Jhoy Tagum | Developer |
+| Feliah Hadassah Salvamante | Documentation |
+| Marriet Jhoy Tagum | Missing in Action |
 
 ## 📝 License
 
