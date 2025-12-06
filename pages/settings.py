@@ -533,6 +533,409 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
         dialog.open = True
         page.update()
     
+    # ==================== HELP & SUPPORT DIALOG ====================
+    def show_help_support_dialog(e):
+        c = t()
+        rv = get_responsive_values()
+        
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+        
+        # Responsive FAQ item builder
+        def build_faq_item(question, answer):
+            return ft.Container(
+                content=ft.Column([
+                    ft.Text(question, size=rv["font_body"], color=c["text_primary"], weight=ft.FontWeight.W_500),
+                    ft.Text(answer, size=max(10, rv["font_body"] - 2), color=c["text_secondary"]),
+                ], spacing=4),
+                padding=ft.padding.symmetric(vertical=8),
+                border=ft.border.only(bottom=ft.BorderSide(1, c["border"])),
+            )
+        
+        # Responsive support option builder
+        def build_support_option(icon, title, subtitle, color):
+            return ft.Container(
+                content=ft.Row([
+                    ft.Container(
+                        content=ft.Icon(icon, size=rv["icon_size"], color=color),
+                        width=max(36, rv["icon_size"] + 16),
+                        height=max(36, rv["icon_size"] + 16),
+                        bgcolor=ft.Colors.with_opacity(0.1, color),
+                        border_radius=8,
+                        alignment=ft.alignment.center,
+                    ),
+                    ft.Column([
+                        ft.Text(title, size=rv["font_body"], color=c["text_primary"], weight=ft.FontWeight.W_500),
+                        ft.Text(subtitle, size=max(9, rv["font_body"] - 3), color=c["text_hint"]),
+                    ], spacing=2, expand=True),
+                ], spacing=rv["section_spacing"]),
+                padding=ft.padding.all(rv["button_padding"] - 2),
+                bgcolor=c["bg_secondary"],
+                border_radius=10,
+            )
+        
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.HELP_OUTLINE, size=rv["icon_size"], color=c["accent"]),
+                ft.Text("Help & Support", size=rv["font_title"], weight=ft.FontWeight.W_600, color=c["text_primary"]),
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    # Support options - responsive grid
+                    ft.Text("Contact Us", size=rv["font_body"], color=c["text_hint"], weight=ft.FontWeight.W_500),
+                    ft.Container(height=4),
+                    ft.ResponsiveRow([
+                        ft.Container(
+                            content=build_support_option(ft.Icons.EMAIL, "Email Support", "support@smartclass.edu", c["accent"]),
+                            col={"xs": 12, "sm": 6},
+                        ),
+                        ft.Container(
+                            content=build_support_option(ft.Icons.CHAT_BUBBLE_OUTLINE, "Live Chat", "Available 9AM-5PM", "#4CAF50"),
+                            col={"xs": 12, "sm": 6},
+                        ),
+                    ], spacing=8, run_spacing=8),
+                    ft.Container(height=rv["section_spacing"]),
+                    
+                    # FAQ Section
+                    ft.Text("Frequently Asked Questions", size=rv["font_body"], color=c["text_hint"], weight=ft.FontWeight.W_500),
+                    ft.Container(height=4),
+                    ft.Container(
+                        content=ft.Column([
+                            build_faq_item(
+                                "How do I mark attendance?",
+                                "Go to the Attendance section, select your class, and use the QR scanner or manual entry."
+                            ),
+                            build_faq_item(
+                                "Can I change my schedule?",
+                                "Yes, go to Schedule > Edit to modify your class schedule and room assignments."
+                            ),
+                            build_faq_item(
+                                "How do I reset my password?",
+                                "Use the 'Forgot Password' option on the login screen or change it in Settings > Profile."
+                            ),
+                        ], spacing=0),
+                        bgcolor=c["bg_secondary"],
+                        border_radius=10,
+                        padding=ft.padding.symmetric(horizontal=rv["button_padding"], vertical=4),
+                    ),
+                ], spacing=4, scroll=ft.ScrollMode.AUTO),
+                width=rv["dialog_width"],
+                height=min(400, (page.height or 600) * 0.6),
+            ),
+            actions=[
+                ft.TextButton("Close", on_click=close_dialog, style=ft.ButtonStyle(color=c["text_secondary"])),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor=c["bg_card"], shape=ft.RoundedRectangleBorder(radius=16),
+        )
+        
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+    
+    # ==================== CONTACT DEVELOPER DIALOG ====================
+    def show_contact_developer_dialog(e):
+        c = t()
+        rv = get_responsive_values()
+        feedback_field = ft.Ref[ft.TextField]()
+        
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+        
+        def send_feedback(e):
+            feedback = feedback_field.current.value
+            if feedback and feedback.strip():
+                dialog.open = False
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
+                        ft.Text("Thank you for your feedback!", color="#ffffff"),
+                    ], spacing=8),
+                    bgcolor=c["success"],
+                )
+                page.snack_bar.open = True
+                page.update()
+            else:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Text("Please enter your feedback", color="#ffffff"),
+                    bgcolor=c["warning"],
+                )
+                page.snack_bar.open = True
+                page.update()
+        
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.EMAIL_OUTLINED, size=rv["icon_size"], color="#4CAF50"),
+                ft.Text("Contact Developer", size=rv["font_title"], weight=ft.FontWeight.W_600, color=c["text_primary"]),
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    # Developer info - responsive layout
+                    ft.Container(
+                        content=ft.ResponsiveRow([
+                            ft.Container(
+                                content=ft.Column([
+                                    ft.Container(
+                                        content=ft.Icon(ft.Icons.CODE, size=rv["icon_size"] + 4, color="#4CAF50"),
+                                        width=max(50, rv["logo_size"] * 0.7),
+                                        height=max(50, rv["logo_size"] * 0.7),
+                                        bgcolor=ft.Colors.with_opacity(0.1, "#4CAF50"),
+                                        border_radius=max(25, rv["logo_size"] * 0.35),
+                                        alignment=ft.alignment.center,
+                                    ),
+                                    ft.Text("Smart Classroom Team", size=rv["font_body"], color=c["text_primary"], weight=ft.FontWeight.W_600, text_align=ft.TextAlign.CENTER),
+                                    ft.Text("CCS Development Team", size=max(10, rv["font_body"] - 2), color=c["text_hint"], text_align=ft.TextAlign.CENTER),
+                                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                                col=12,
+                                alignment=ft.alignment.center,
+                            ),
+                        ]),
+                        padding=ft.padding.symmetric(vertical=rv["section_spacing"]),
+                    ),
+                    
+                    # Contact options
+                    ft.ResponsiveRow([
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.EMAIL, size=rv["icon_size"] - 4, color=c["text_secondary"]),
+                                ft.Text("dev@smartclassroom.edu", size=max(10, rv["font_body"] - 2), color=c["text_primary"]),
+                            ], spacing=8),
+                            col={"xs": 12, "sm": 6},
+                        ),
+                        ft.Container(
+                            content=ft.Row([
+                                ft.Icon(ft.Icons.LANGUAGE, size=rv["icon_size"] - 4, color=c["text_secondary"]),
+                                ft.Text("smartclassroom.edu", size=max(10, rv["font_body"] - 2), color=c["text_primary"]),
+                            ], spacing=8),
+                            col={"xs": 12, "sm": 6},
+                        ),
+                    ], spacing=8, run_spacing=8),
+                    
+                    ft.Container(height=rv["section_spacing"]),
+                    ft.Divider(color=c["border"], height=1),
+                    ft.Container(height=rv["section_spacing"]),
+                    
+                    # Feedback form
+                    ft.Text("Send Feedback", size=rv["font_body"], color=c["text_hint"], weight=ft.FontWeight.W_500),
+                    ft.Container(height=4),
+                    ft.TextField(
+                        ref=feedback_field,
+                        multiline=True,
+                        min_lines=3,
+                        max_lines=5,
+                        hint_text="Share your thoughts, suggestions, or report issues...",
+                        border_color=c["border"],
+                        focused_border_color=c["accent"],
+                        text_style=ft.TextStyle(color=c["text_primary"], size=rv["font_body"]),
+                        hint_style=ft.TextStyle(color=c["text_hint"], size=rv["font_body"] - 1),
+                        border_radius=10,
+                    ),
+                ], spacing=4),
+                width=rv["dialog_width"],
+            ),
+            actions=[
+                ft.TextButton("Cancel", on_click=close_dialog, style=ft.ButtonStyle(color=c["text_secondary"])),
+                ft.ElevatedButton("Send", bgcolor="#4CAF50", color="#ffffff",
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+                    on_click=send_feedback),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor=c["bg_card"], shape=ft.RoundedRectangleBorder(radius=16),
+        )
+        
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+    
+    # ==================== TERMS OF SERVICE DIALOG ====================
+    def show_terms_dialog(e):
+        c = t()
+        rv = get_responsive_values()
+        
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+        
+        terms_content = """1. Acceptance of Terms
+By accessing and using Smart Classroom, you agree to be bound by these Terms of Service.
+
+2. User Accounts
+You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.
+
+3. Acceptable Use
+Users must not misuse the service, attempt unauthorized access, or interfere with other users' experience.
+
+4. Privacy
+Your use of the service is also governed by our Privacy Policy. We collect and process data as described therein.
+
+5. Intellectual Property
+All content, features, and functionality are owned by Smart Classroom and protected by applicable laws.
+
+6. Modifications
+We reserve the right to modify these terms at any time. Continued use constitutes acceptance of changes.
+
+7. Limitation of Liability
+Smart Classroom is provided "as is" without warranties. We are not liable for any damages arising from use.
+
+8. Contact
+For questions about these terms, contact us at legal@smartclassroom.edu"""
+        
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, size=rv["icon_size"], color="#FF9800"),
+                ft.Text("Terms of Service", size=rv["font_title"], weight=ft.FontWeight.W_600, color=c["text_primary"]),
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Container(
+                        content=ft.Text(
+                            terms_content,
+                            size=max(10, rv["font_body"] - 1),
+                            color=c["text_secondary"],
+                        ),
+                        bgcolor=c["bg_secondary"],
+                        border_radius=10,
+                        padding=rv["button_padding"],
+                    ),
+                ], scroll=ft.ScrollMode.AUTO),
+                width=rv["dialog_width"],
+                height=min(400, (page.height or 600) * 0.6),
+            ),
+            actions=[
+                ft.TextButton("Close", on_click=close_dialog, style=ft.ButtonStyle(color=c["text_secondary"])),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor=c["bg_card"], shape=ft.RoundedRectangleBorder(radius=16),
+        )
+        
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+    
+    # ==================== PRIVACY POLICY DIALOG ====================
+    def show_privacy_dialog(e):
+        c = t()
+        rv = get_responsive_values()
+        
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+        
+        # Privacy info item builder
+        def build_privacy_item(icon, title, description, color):
+            return ft.Container(
+                content=ft.Row([
+                    ft.Container(
+                        content=ft.Icon(icon, size=rv["icon_size"] - 2, color=color),
+                        width=max(32, rv["icon_size"] + 12),
+                        height=max(32, rv["icon_size"] + 12),
+                        bgcolor=ft.Colors.with_opacity(0.1, color),
+                        border_radius=8,
+                        alignment=ft.alignment.center,
+                    ),
+                    ft.Column([
+                        ft.Text(title, size=rv["font_body"], color=c["text_primary"], weight=ft.FontWeight.W_500),
+                        ft.Text(description, size=max(9, rv["font_body"] - 2), color=c["text_hint"]),
+                    ], spacing=2, expand=True),
+                ], spacing=rv["section_spacing"], vertical_alignment=ft.CrossAxisAlignment.START),
+                padding=ft.padding.symmetric(vertical=8),
+            )
+        
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row([
+                ft.Icon(ft.Icons.PRIVACY_TIP_OUTLINED, size=rv["icon_size"], color="#9C27B0"),
+                ft.Text("Privacy Policy", size=rv["font_title"], weight=ft.FontWeight.W_600, color=c["text_primary"]),
+            ], spacing=8),
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text(
+                        "We are committed to protecting your privacy. Here's how we handle your data:",
+                        size=rv["font_body"],
+                        color=c["text_secondary"],
+                    ),
+                    ft.Container(height=rv["section_spacing"]),
+                    
+                    # Privacy items in responsive layout
+                    ft.ResponsiveRow([
+                        ft.Container(
+                            content=build_privacy_item(
+                                ft.Icons.SHIELD,
+                                "Data Security",
+                                "Your data is encrypted and stored securely on our servers.",
+                                "#4CAF50"
+                            ),
+                            col={"xs": 12, "md": 6},
+                        ),
+                        ft.Container(
+                            content=build_privacy_item(
+                                ft.Icons.VISIBILITY_OFF,
+                                "No Tracking",
+                                "We don't track your browsing activity or sell your data.",
+                                "#2196F3"
+                            ),
+                            col={"xs": 12, "md": 6},
+                        ),
+                        ft.Container(
+                            content=build_privacy_item(
+                                ft.Icons.PERSON,
+                                "Your Control",
+                                "You can delete your account and data at any time.",
+                                "#FF9800"
+                            ),
+                            col={"xs": 12, "md": 6},
+                        ),
+                        ft.Container(
+                            content=build_privacy_item(
+                                ft.Icons.LOCK,
+                                "Access Control",
+                                "Only you can access your personal information.",
+                                "#9C27B0"
+                            ),
+                            col={"xs": 12, "md": 6},
+                        ),
+                    ], spacing=4, run_spacing=4),
+                    
+                    ft.Container(height=rv["section_spacing"]),
+                    ft.Divider(color=c["border"], height=1),
+                    ft.Container(height=rv["section_spacing"]),
+                    
+                    # Data collection summary
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Text("Data We Collect", size=rv["font_body"], color=c["text_primary"], weight=ft.FontWeight.W_500),
+                            ft.Container(height=4),
+                            ft.Row([ft.Icon(ft.Icons.CHECK, size=14, color=c["success"]), 
+                                   ft.Text("Basic profile information", size=max(10, rv["font_body"] - 2), color=c["text_secondary"])], spacing=8),
+                            ft.Row([ft.Icon(ft.Icons.CHECK, size=14, color=c["success"]), 
+                                   ft.Text("Class schedules and attendance", size=max(10, rv["font_body"] - 2), color=c["text_secondary"])], spacing=8),
+                            ft.Row([ft.Icon(ft.Icons.CHECK, size=14, color=c["success"]), 
+                                   ft.Text("App usage for improvements", size=max(10, rv["font_body"] - 2), color=c["text_secondary"])], spacing=8),
+                        ], spacing=4),
+                        bgcolor=c["bg_secondary"],
+                        border_radius=10,
+                        padding=rv["button_padding"],
+                    ),
+                ], scroll=ft.ScrollMode.AUTO),
+                width=rv["dialog_width"],
+                height=min(420, (page.height or 600) * 0.65),
+            ),
+            actions=[
+                ft.TextButton("Close", on_click=close_dialog, style=ft.ButtonStyle(color=c["text_secondary"])),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor=c["bg_card"], shape=ft.RoundedRectangleBorder(radius=16),
+        )
+        
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+    
     # Theme toggle handler
     def on_theme_toggle(e):
         settings_values["dark_mode"] = e.control.value
@@ -915,7 +1318,7 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                                         padding=ft.padding.all(responsive["button_padding"]),
                                         border_radius=12,
                                         bgcolor=theme["bg_secondary"],
-                                        on_click=lambda e: None,
+                                        on_click=show_help_support_dialog,
                                         ink=True,
                                         col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
                                     ),
@@ -939,7 +1342,7 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                                         padding=ft.padding.all(responsive["button_padding"]),
                                         border_radius=12,
                                         bgcolor=theme["bg_secondary"],
-                                        on_click=lambda e: None,
+                                        on_click=show_contact_developer_dialog,
                                         ink=True,
                                         col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
                                     ),
@@ -963,7 +1366,7 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                                         padding=ft.padding.all(responsive["button_padding"]),
                                         border_radius=12,
                                         bgcolor=theme["bg_secondary"],
-                                        on_click=lambda e: None,
+                                        on_click=show_terms_dialog,
                                         ink=True,
                                         col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
                                     ),
@@ -987,7 +1390,7 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                                         padding=ft.padding.all(responsive["button_padding"]),
                                         border_radius=12,
                                         bgcolor=theme["bg_secondary"],
-                                        on_click=lambda e: None,
+                                        on_click=show_privacy_dialog,
                                         ink=True,
                                         col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
                                     ),
