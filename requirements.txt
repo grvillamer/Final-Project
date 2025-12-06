@@ -1,16 +1,19 @@
+# Smart Classroom - Access Control System
+# Core Framework
 flet>=0.21.0
-sqlalchemy>=2.0.0
-bcrypt>=4.0.0
+
+# Security
+bcrypt>=4.1.0
 python-dotenv>=1.0.0
-qrcode>=7.4.0
-Pillow>=10.0.0
-numpy>=1.24.0
-pandas>=2.0.0
+cryptography>=41.0.0
 
+# Database
+# SQLite is built-in, but we use these for better handling
 
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
 
-
-
-
-
-
+# Code Quality
+ruff>=0.1.0
+black>=23.0.0

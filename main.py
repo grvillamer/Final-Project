@@ -1,13 +1,18 @@
 """
-Smart Classroom Availability and Locator App for CCS
+Smart Classroom - Access Control System
 Main Application Entry Point
 
-A cross-platform classroom management application built with Flet (Python + Flutter rendering).
+A secure cross-platform classroom management application built with Flet (Python + Flutter).
+Implements RBAC, audit logging, and security controls per Information Assurance requirements.
+
 Runs on Desktop, Web, and Mobile platforms.
 """
 import flet as ft
+from datetime import datetime, timedelta
 from database import db
 from utils.theme import get_theme
+from config import config
+from core.audit import audit_logger
 
 # Import pages
 from pages.splash import SplashPage
@@ -21,6 +26,8 @@ from pages.classes import ClassesPage, CreateClassPage, ClassDetailPage
 from pages.attendance import AttendancePage, AttendanceSessionPage
 from pages.analytics import AnalyticsPage
 from pages.settings import SettingsPage, ProfilePage
+from pages.admin import AdminPage
+from pages.audit_logs import AuditLogsPage
 
 
 def main(page: ft.Page):
@@ -252,6 +259,22 @@ def main(page: ft.Page):
                 on_back=lambda: navigate_back(),
             )
         
+        elif route == 'admin':
+            show_nav = False
+            content = AdminPage(
+                page,
+                user=user,
+                on_navigate=handle_admin_navigate,
+            )
+        
+        elif route == 'audit_logs':
+            show_nav = False
+            content = AuditLogsPage(
+                page,
+                user=user,
+                on_navigate=handle_admin_navigate,
+            )
+        
         # Build the page view
         page.controls.clear()
         
@@ -348,6 +371,23 @@ def main(page: ft.Page):
             push_navigation('profile')
         elif route == 'change_password':
             push_navigation('change_password')
+        elif route == 'admin':
+            push_navigation('admin')
+        elif route == 'audit_logs':
+            push_navigation('audit_logs')
+    
+    def handle_admin_navigate(route: str, data=None):
+        """Handle navigation from admin pages"""
+        if route == 'home':
+            current_nav_index["index"] = 0
+            navigate_to('home')
+        elif route == 'settings':
+            current_nav_index["index"] = 3
+            navigate_to('settings')
+        elif route == 'admin':
+            navigate_to('admin')
+        elif route == 'audit_logs':
+            navigate_to('audit_logs')
     
     # ==================== AUTH HANDLERS ====================
     
@@ -358,10 +398,15 @@ def main(page: ft.Page):
         navigation_stack.clear()
         # Load user's theme preference
         load_user_theme(user.get('id'))
+        # Log successful login
+        audit_logger.log_login_success(user.get('id'), user.get('student_id'))
         navigate_to('home')
     
     def handle_logout():
         """Handle logout"""
+        user = current_user["user"]
+        if user:
+            audit_logger.log_logout(user.get('id'), user.get('student_id'))
         current_user["user"] = None
         current_nav_index["index"] = 0
         navigation_stack.clear()

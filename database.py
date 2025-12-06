@@ -1,19 +1,37 @@
 """
-SpottEd Database Service - Offline-First SQLite Storage
+Smart Classroom Database Service - Secure Access Control System
+Implements secure data storage with audit logging and RBAC
 """
 import sqlite3
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 import hashlib
+import secrets
+
+# Import security service for password hashing
+try:
+    from core.security import security_service
+    SECURITY_AVAILABLE = True
+except ImportError:
+    SECURITY_AVAILABLE = False
+
+from config import config
 
 
 class Database:
-    """SQLite database service with offline-first capabilities"""
+    """
+    SQLite database service with security features:
+    - Secure password hashing (bcrypt)
+    - Audit logging
+    - Login attempt tracking
+    - Password history
+    - Role-based access control
+    """
     
-    def __init__(self, db_path: str = "spotted.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path or config.DATABASE_PATH
         self.conn = None
         self._initialize()
     
@@ -22,12 +40,14 @@ class Database:
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._create_tables()
+        self._create_security_tables()
+        self._create_default_admin()
     
     def _create_tables(self):
         """Create all required tables"""
         cursor = self.conn.cursor()
         
-        # Users table
+        # Users table with security fields
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,6 +58,11 @@ class Database:
                 last_name TEXT NOT NULL,
                 role TEXT DEFAULT 'student',
                 profile_image TEXT,
+                is_active INTEGER DEFAULT 1,
+                failed_login_attempts INTEGER DEFAULT 0,
+                last_failed_login TIMESTAMP,
+                last_login TIMESTAMP,
+                password_changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -162,34 +187,230 @@ class Database:
         # Initialize default classrooms if empty
         self._init_classrooms()
     
+    def _create_security_tables(self):
+        """Create security-related tables"""
+        cursor = self.conn.cursor()
+        
+        # Audit logs table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action TEXT NOT NULL,
+                category TEXT,
+                user_id INTEGER,
+                username TEXT,
+                success INTEGER DEFAULT 1,
+                ip_address TEXT,
+                details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Password history table (for reuse prevention)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS password_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        ''')
+        
+        # Sessions table for tracking
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                session_token TEXT UNIQUE NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                is_active INTEGER DEFAULT 1,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        ''')
+        
+        # User activity log
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_activity (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                activity_type TEXT NOT NULL,
+                description TEXT,
+                ip_address TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        ''')
+        
+        self.conn.commit()
+    
+    def _create_default_admin(self):
+        """Create default admin user if none exists"""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role = 'admin'")
+        if cursor.fetchone()['count'] == 0:
+            # Create default admin
+            admin_password = "Admin@123"  # Should be changed on first login
+            self.create_user(
+                student_id="ADMIN001",
+                email="admin@smartclassroom.edu",
+                password=admin_password,
+                first_name="System",
+                last_name="Administrator",
+                role="admin"
+            )
+            print("[DATABASE] Default admin created: ADMIN001 / Admin@123")
+    
     def _hash_password(self, password: str) -> str:
-        """Hash password using SHA-256"""
+        """Hash password using bcrypt (via security service) or SHA-256 fallback"""
+        if SECURITY_AVAILABLE:
+            return security_service.hash_password(password)
         return hashlib.sha256(password.encode()).hexdigest()
+    
+    def _verify_password(self, password: str, hashed: str) -> bool:
+        """Verify password against hash"""
+        if SECURITY_AVAILABLE:
+            return security_service.verify_password(password, hashed)
+        # Fallback for legacy hashes
+        return hashlib.sha256(password.encode()).hexdigest() == hashed
     
     # ==================== USER OPERATIONS ====================
     
     def create_user(self, student_id: str, email: str, password: str, 
                     first_name: str, last_name: str, role: str = "student") -> Optional[int]:
-        """Create a new user"""
+        """Create a new user with secure password hashing"""
         try:
             cursor = self.conn.cursor()
+            password_hash = self._hash_password(password)
             cursor.execute('''
-                INSERT INTO users (student_id, email, password_hash, first_name, last_name, role)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (student_id, email, self._hash_password(password), first_name, last_name, role))
+                INSERT INTO users (student_id, email, password_hash, first_name, last_name, role, password_changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (student_id, email, password_hash, first_name, last_name, role))
             self.conn.commit()
-            return cursor.lastrowid
+            user_id = cursor.lastrowid
+            
+            # Store initial password in history
+            self._add_password_history(user_id, password_hash)
+            
+            return user_id
         except sqlite3.IntegrityError:
             return None
     
     def authenticate_user(self, student_id: str, password: str) -> Optional[Dict]:
-        """Authenticate user by student ID and password"""
+        """
+        Authenticate user with security controls:
+        - Account lockout check
+        - Password verification
+        - Login attempt tracking
+        - Last login update
+        """
+        cursor = self.conn.cursor()
+        
+        # Get user by student_id
+        cursor.execute('SELECT * FROM users WHERE student_id = ?', (student_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        user = dict(row)
+        
+        # Check if account is active
+        if not user.get('is_active', 1):
+            return None  # Account disabled
+        
+        # Check for account lockout
+        failed_attempts = user.get('failed_login_attempts', 0)
+        last_failed = user.get('last_failed_login')
+        
+        if failed_attempts >= config.MAX_LOGIN_ATTEMPTS and last_failed:
+            try:
+                last_failed_dt = datetime.fromisoformat(last_failed)
+                lockout_end = last_failed_dt + timedelta(minutes=config.LOCKOUT_DURATION_MINUTES)
+                if datetime.now() < lockout_end:
+                    return None  # Account still locked
+                else:
+                    # Lockout expired, reset attempts
+                    self._reset_login_attempts(user['id'])
+            except:
+                pass
+        
+        # Verify password
+        if self._verify_password(password, user['password_hash']):
+            # Successful login
+            self._reset_login_attempts(user['id'])
+            self._update_last_login(user['id'])
+            return user
+        else:
+            # Failed login
+            self._increment_login_attempts(user['id'])
+            return None
+    
+    def _increment_login_attempts(self, user_id: int):
+        """Increment failed login attempts"""
         cursor = self.conn.cursor()
         cursor.execute('''
-            SELECT * FROM users WHERE student_id = ? AND password_hash = ?
-        ''', (student_id, self._hash_password(password)))
+            UPDATE users SET 
+                failed_login_attempts = failed_login_attempts + 1,
+                last_failed_login = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ''', (user_id,))
+        self.conn.commit()
+    
+    def _reset_login_attempts(self, user_id: int):
+        """Reset failed login attempts"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE users SET failed_login_attempts = 0, last_failed_login = NULL WHERE id = ?
+        ''', (user_id,))
+        self.conn.commit()
+    
+    def _update_last_login(self, user_id: int):
+        """Update last login timestamp"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (user_id,))
+        self.conn.commit()
+    
+    def _add_password_history(self, user_id: int, password_hash: str):
+        """Add password to history"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO password_history (user_id, password_hash) VALUES (?, ?)
+        ''', (user_id, password_hash))
+        
+        # Keep only last N passwords
+        cursor.execute('''
+            DELETE FROM password_history WHERE user_id = ? AND id NOT IN (
+                SELECT id FROM password_history WHERE user_id = ? 
+                ORDER BY created_at DESC LIMIT ?
+            )
+        ''', (user_id, user_id, config.PASSWORD_HISTORY_COUNT))
+        self.conn.commit()
+    
+    def check_password_reuse(self, user_id: int, new_password: str) -> bool:
+        """Check if password was recently used (returns True if reused)"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT password_hash FROM password_history WHERE user_id = ?
+            ORDER BY created_at DESC LIMIT ?
+        ''', (user_id, config.PASSWORD_HISTORY_COUNT))
+        
+        for row in cursor.fetchall():
+            if self._verify_password(new_password, row['password_hash']):
+                return True
+        return False
+    
+    def get_login_attempts(self, user_id: int) -> Dict:
+        """Get login attempt info for a user"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT failed_login_attempts, last_failed_login FROM users WHERE id = ?
+        ''', (user_id,))
         row = cursor.fetchone()
-        return dict(row) if row else None
+        return dict(row) if row else {'failed_login_attempts': 0, 'last_failed_login': None}
     
     def get_user(self, user_id: int) -> Optional[Dict]:
         """Get user by ID"""
@@ -255,14 +476,274 @@ class Database:
         self.conn.commit()
         return cursor.rowcount > 0
     
-    def update_password(self, user_id: int, new_password: str) -> bool:
-        """Update user password"""
+    def update_password(self, user_id: int, new_password: str, check_history: bool = True) -> tuple:
+        """
+        Update user password with security checks.
+        Returns (success: bool, error_message: str or None)
+        """
+        # Check password reuse
+        if check_history and self.check_password_reuse(user_id, new_password):
+            return False, "Cannot reuse recent passwords"
+        
+        password_hash = self._hash_password(new_password)
         cursor = self.conn.cursor()
         cursor.execute('''
-            UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-        ''', (self._hash_password(new_password), user_id))
+            UPDATE users SET 
+                password_hash = ?, 
+                password_changed_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        ''', (password_hash, user_id))
+        self.conn.commit()
+        
+        if cursor.rowcount > 0:
+            # Add to password history
+            self._add_password_history(user_id, password_hash)
+            return True, None
+        return False, "Failed to update password"
+    
+    # ==================== ADMIN USER MANAGEMENT ====================
+    
+    def get_all_users(self, include_inactive: bool = False) -> List[Dict]:
+        """Get all users (admin function)"""
+        cursor = self.conn.cursor()
+        if include_inactive:
+            cursor.execute('''
+                SELECT id, student_id, email, first_name, last_name, role, 
+                       is_active, last_login, created_at, failed_login_attempts
+                FROM users ORDER BY created_at DESC
+            ''')
+        else:
+            cursor.execute('''
+                SELECT id, student_id, email, first_name, last_name, role,
+                       is_active, last_login, created_at, failed_login_attempts
+                FROM users WHERE is_active = 1 ORDER BY created_at DESC
+            ''')
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_user_by_student_id(self, student_id: str) -> Optional[Dict]:
+        """Get user by student ID"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE student_id = ?', (student_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def disable_user(self, user_id: int) -> bool:
+        """Disable a user account (soft delete)"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (user_id,))
         self.conn.commit()
         return cursor.rowcount > 0
+    
+    def enable_user(self, user_id: int) -> bool:
+        """Enable a disabled user account"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE users SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (user_id,))
+        self.conn.commit()
+        return cursor.rowcount > 0
+    
+    def change_user_role(self, user_id: int, new_role: str) -> bool:
+        """Change user role (admin function)"""
+        valid_roles = ['student', 'instructor', 'admin']
+        if new_role not in valid_roles:
+            return False
+        
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (new_role, user_id))
+        self.conn.commit()
+        return cursor.rowcount > 0
+    
+    def unlock_user_account(self, user_id: int) -> bool:
+        """Unlock a locked user account (reset failed attempts)"""
+        return self._reset_login_attempts(user_id) or True
+    
+    def get_user_count_by_role(self) -> Dict[str, int]:
+        """Get count of users by role"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT role, COUNT(*) as count FROM users 
+            WHERE is_active = 1 GROUP BY role
+        ''')
+        return {row['role']: row['count'] for row in cursor.fetchall()}
+    
+    # ==================== AUDIT LOG OPERATIONS ====================
+    
+    def add_audit_log(self, action: str, category: str = None, user_id: int = None,
+                      username: str = None, success: bool = True, 
+                      ip_address: str = None, details: str = None) -> int:
+        """Add an entry to the audit log"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO audit_logs (action, category, user_id, username, success, ip_address, details)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (action, category, user_id, username, 1 if success else 0, ip_address, details))
+        self.conn.commit()
+        return cursor.lastrowid
+    
+    def get_audit_logs(self, limit: int = 100, offset: int = 0, 
+                       action_filter: str = None, user_filter: int = None,
+                       date_from: str = None, date_to: str = None) -> List[Dict]:
+        """Get audit logs with optional filters"""
+        cursor = self.conn.cursor()
+        
+        query = 'SELECT * FROM audit_logs WHERE 1=1'
+        params = []
+        
+        if action_filter:
+            query += ' AND action = ?'
+            params.append(action_filter)
+        
+        if user_filter:
+            query += ' AND user_id = ?'
+            params.append(user_filter)
+        
+        if date_from:
+            query += ' AND created_at >= ?'
+            params.append(date_from)
+        
+        if date_to:
+            query += ' AND created_at <= ?'
+            params.append(date_to)
+        
+        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+        params.extend([limit, offset])
+        
+        cursor.execute(query, params)
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_audit_log_count(self, action_filter: str = None, user_filter: int = None) -> int:
+        """Get total count of audit logs"""
+        cursor = self.conn.cursor()
+        
+        query = 'SELECT COUNT(*) as count FROM audit_logs WHERE 1=1'
+        params = []
+        
+        if action_filter:
+            query += ' AND action = ?'
+            params.append(action_filter)
+        
+        if user_filter:
+            query += ' AND user_id = ?'
+            params.append(user_filter)
+        
+        cursor.execute(query, params)
+        return cursor.fetchone()['count']
+    
+    def get_audit_action_types(self) -> List[str]:
+        """Get list of unique audit action types"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT DISTINCT action FROM audit_logs ORDER BY action')
+        return [row['action'] for row in cursor.fetchall()]
+    
+    # ==================== USER ACTIVITY OPERATIONS ====================
+    
+    def log_user_activity(self, user_id: int, activity_type: str, 
+                          description: str = None, ip_address: str = None) -> int:
+        """Log user activity"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO user_activity (user_id, activity_type, description, ip_address)
+            VALUES (?, ?, ?, ?)
+        ''', (user_id, activity_type, description, ip_address))
+        self.conn.commit()
+        return cursor.lastrowid
+    
+    def get_user_activity(self, user_id: int, limit: int = 50) -> List[Dict]:
+        """Get activity history for a user"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM user_activity WHERE user_id = ?
+            ORDER BY created_at DESC LIMIT ?
+        ''', (user_id, limit))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_recent_logins(self, limit: int = 20) -> List[Dict]:
+        """Get recent login activity"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT u.id, u.student_id, u.first_name, u.last_name, u.role, u.last_login
+            FROM users u WHERE u.last_login IS NOT NULL
+            ORDER BY u.last_login DESC LIMIT ?
+        ''', (limit,))
+        return [dict(row) for row in cursor.fetchall()]
+    
+    def get_failed_login_summary(self) -> List[Dict]:
+        """Get summary of users with failed login attempts"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT id, student_id, first_name, last_name, 
+                   failed_login_attempts, last_failed_login
+            FROM users WHERE failed_login_attempts > 0
+            ORDER BY failed_login_attempts DESC
+        ''')
+        return [dict(row) for row in cursor.fetchall()]
+    
+    # ==================== SESSION MANAGEMENT ====================
+    
+    def create_session(self, user_id: int, ip_address: str = None, 
+                       user_agent: str = None) -> str:
+        """Create a new session and return token"""
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(minutes=config.SESSION_TIMEOUT_MINUTES)
+        
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent, expires_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (user_id, token, ip_address, user_agent, expires_at.isoformat()))
+        self.conn.commit()
+        return token
+    
+    def validate_session(self, token: str) -> Optional[Dict]:
+        """Validate session token and return user if valid"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT s.*, u.* FROM user_sessions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.session_token = ? AND s.is_active = 1
+        ''', (token,))
+        row = cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        session = dict(row)
+        
+        # Check expiration
+        if session.get('expires_at'):
+            try:
+                expires = datetime.fromisoformat(session['expires_at'])
+                if datetime.now() > expires:
+                    self.invalidate_session(token)
+                    return None
+            except:
+                pass
+        
+        return session
+    
+    def invalidate_session(self, token: str) -> bool:
+        """Invalidate a session"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE user_sessions SET is_active = 0 WHERE session_token = ?', (token,))
+        self.conn.commit()
+        return cursor.rowcount > 0
+    
+    def invalidate_all_user_sessions(self, user_id: int) -> int:
+        """Invalidate all sessions for a user"""
+        cursor = self.conn.cursor()
+        cursor.execute('UPDATE user_sessions SET is_active = 0 WHERE user_id = ?', (user_id,))
+        self.conn.commit()
+        return cursor.rowcount
+    
+    def get_active_sessions(self, user_id: int) -> List[Dict]:
+        """Get all active sessions for a user"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM user_sessions 
+            WHERE user_id = ? AND is_active = 1
+            ORDER BY created_at DESC
+        ''', (user_id,))
+        return [dict(row) for row in cursor.fetchall()]
     
     # ==================== CLASS OPERATIONS ====================
     

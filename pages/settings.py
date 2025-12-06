@@ -1239,6 +1239,57 @@ For questions about these terms, contact us at legal@smartclassroom.edu"""
             
             ft.Container(height=responsive["section_spacing"]),
             
+            # ==================== ADMIN PANEL (Admin Only) ====================
+            ft.Container(
+                content=ft.Column([
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.ADMIN_PANEL_SETTINGS, size=responsive["icon_size"], color="#f44336"),
+                            ft.Text("Admin Panel", size=responsive["font_body"], color=theme["text_primary"], expand=True),
+                            ft.Container(
+                                content=ft.Text("ADMIN", size=9, color="#ffffff"),
+                                bgcolor="#f44336",
+                                padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                                border_radius=4,
+                            ),
+                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"], color=theme["text_hint"]),
+                        ], spacing=responsive["section_spacing"]),
+                        padding=ft.padding.symmetric(horizontal=responsive["padding"], vertical=responsive["button_padding"]),
+                        on_click=lambda e: on_navigate('admin') if on_navigate else None,
+                    ),
+                    ft.Divider(color=theme["border"], height=1),
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.PEOPLE, size=responsive["icon_size"] - 2, color=theme["text_secondary"]),
+                            ft.Column([
+                                ft.Text("User Management", size=responsive["font_body"], color=theme["text_primary"]),
+                                ft.Text("Create, edit, and manage users", size=max(9, responsive["font_body"] - 3), color=theme["text_hint"]),
+                            ], spacing=2, expand=True),
+                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"] - 4, color=theme["text_hint"]),
+                        ], spacing=responsive["section_spacing"]),
+                        padding=ft.padding.symmetric(horizontal=responsive["padding"], vertical=10),
+                        on_click=lambda e: on_navigate('admin') if on_navigate else None,
+                    ),
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.HISTORY, size=responsive["icon_size"] - 2, color=theme["text_secondary"]),
+                            ft.Column([
+                                ft.Text("Audit Logs", size=responsive["font_body"], color=theme["text_primary"]),
+                                ft.Text("View security and activity logs", size=max(9, responsive["font_body"] - 3), color=theme["text_hint"]),
+                            ], spacing=2, expand=True),
+                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"] - 4, color=theme["text_hint"]),
+                        ], spacing=responsive["section_spacing"]),
+                        padding=ft.padding.symmetric(horizontal=responsive["padding"], vertical=10),
+                        on_click=lambda e: on_navigate('audit_logs') if on_navigate else None,
+                    ),
+                ]),
+                bgcolor=theme["bg_card"], border_radius=12,
+                border=ft.border.all(1, theme["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                visible=role == 'admin',  # Only visible for admins
+            ),
+            
+            ft.Container(height=responsive["section_spacing"], visible=role == 'admin'),
+            
             # ==================== ABOUT APP ====================
             ft.Container(
                 content=ft.Column([

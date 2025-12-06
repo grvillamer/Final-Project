@@ -1,10 +1,13 @@
-# Smart Classroom Availability and Locator App for CCS
+# Smart Classroom - Access Control System
 
-A cross-platform classroom management application built with **Flet** (Python + Flutter rendering) for Camarines Sur Polytechnic Colleges (CSPC) - College of Computer Studies (CCS).
+A secure cross-platform classroom management application with **Access Control System** built with **Flet** (Python + Flutter rendering) for Camarines Sur Polytechnic Colleges (CSPC) - College of Computer Studies (CCS).
+
+**Information Assurance Final Project** - Implements secure authentication, RBAC, audit logging, and security controls.
 
 ![Platform](https://img.shields.io/badge/Platform-Desktop%20%7C%20Web%20%7C%20Mobile-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-green)
 ![Flet](https://img.shields.io/badge/Flet-0.21+-purple)
+![Security](https://img.shields.io/badge/Security-RBAC%20%7C%20Audit%20Logs-red)
 
 ## 🎯 Project Overview
 
@@ -37,12 +40,18 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 ## 📁 Project Structure
 
 ```
-/APPDEV FINAL PROJECT
+/Smart-Classroom-ACS
 ├── main.py                 # Application entry point
-├── database.py             # SQLite database layer
+├── database.py             # SQLite database with security features
+├── config.py               # Secure configuration loader
 ├── requirements.txt        # Python dependencies
-├── run_tests.py           # Test runner script
+├── env.example.txt         # Environment variable template
+├── .gitignore             # Git ignore rules
 ├── README.md              # This file
+│
+├── /core                   # Security & Core Services
+│   ├── security.py        # Password hashing, validation, policies
+│   └── audit.py           # Audit logging service
 │
 ├── /models                 # Data classes / DTOs
 │   ├── user.py            # User model
@@ -69,7 +78,9 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 │   ├── home.py            # Dashboard with room list
 │   ├── activity.py        # Recent activity page
 │   ├── schedule.py        # Class schedule page
-│   └── settings.py        # Settings & profile
+│   ├── settings.py        # Settings & profile
+│   ├── admin.py           # Admin user management (RBAC)
+│   └── audit_logs.py      # Audit log viewer (Admin)
 │
 ├── /components            # Reusable UI components
 │   ├── navigation.py      # Navigation components
@@ -78,6 +89,10 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 ├── /utils                 # Utility functions
 │   ├── helpers.py         # Helper functions
 │   └── theme.py           # Theme management (Light/Dark)
+│
+├── /logs                  # Log files (auto-created)
+│   ├── audit.log          # All audit events
+│   └── security.log       # Security-critical events
 │
 ├── /tests                 # Test suite
 │   ├── test_models.py     # Unit tests - Models
@@ -193,13 +208,20 @@ The test suite includes:
 
 ## 👥 Demo Accounts
 
+**Administrator (Full Access):**
+- Student ID: `ADMIN001`
+- Password: `Admin@123`
+- Access: User Management, Audit Logs, All Features
+
 **Instructor:**
-- Email: `instructor@my.cspc.edu.ph`
+- Student ID: `INST001`
 - Password: `password123`
+- Access: Room Booking, Class Management
 
 **Student:**
-- Email: `student@my.cspc.edu.ph`
+- Student ID: `STU001`
 - Password: `password123`
+- Access: View Rooms, View Schedule
 
 ## 📋 User Flows
 
@@ -238,11 +260,40 @@ SQLite database with abstraction layer. Handles initialization, migrations, and 
 ### Offline-First Strategy
 Sync queue for operations when offline. Conflict resolution with multiple strategies.
 
-### Security
-- Password hashing with SHA-256
-- Input validation on all forms
-- Role-based UI gating (instructor vs student)
-- CSPC email validation
+### Security (Access Control System)
+
+This application implements comprehensive security controls for the Information Assurance course:
+
+#### 🔐 Authentication
+- **Secure Password Hashing**: bcrypt with cost factor 12 (SHA-256 fallback)
+- **Account Lockout**: 5 failed attempts triggers 15-minute lockout
+- **Session Management**: Configurable timeout, secure token generation
+- **Login Attempt Tracking**: Records all authentication attempts
+
+#### 👥 Role-Based Access Control (RBAC)
+- **Three Roles**: Admin, Instructor, Student
+- **UI-Level Enforcement**: Components hidden based on role
+- **Backend Enforcement**: All sensitive operations validate role
+- **Default Admin**: System creates initial admin on first run
+
+#### 📋 Password Policy
+- Minimum 8 characters
+- Requires uppercase, lowercase, digit, and special character
+- Prevents password reuse (last 5 passwords)
+- Blocks common/weak passwords
+- Real-time strength indicator
+
+#### 📊 Audit Logging
+- All authentication events (success/failure)
+- Administrative actions (user CRUD, role changes)
+- Access denied events
+- Searchable log viewer with filters
+
+#### 🛡️ Additional Security
+- Input validation and sanitization
+- Secure configuration via environment variables
+- No hardcoded secrets in repository
+- CSRF protection design
 
 ## ✅ Requirements Compliance
 
@@ -268,6 +319,38 @@ Sync queue for operations when offline. Conflict resolution with multiple strate
 2. **Real-time room availability** - Live status updates
 3. **Offline-first strategy** - SQLite with sync capability
 4. **Responsive UI** - Works on all screen sizes
+
+### 🔒 Security Enhancements (Information Assurance Project)
+
+**Selected Optional Features (3+):**
+
+1. ✅ **Password Policy** (complexity, reuse prevention)
+   - Minimum 8 characters with complexity requirements
+   - Blocks common/weak passwords
+   - Prevents reuse of last 5 passwords
+   - Real-time strength indicator
+
+2. ✅ **Audit Log Viewer** (filter by actor, date, action)
+   - Complete audit trail for all security events
+   - Filterable by action type
+   - Pagination support
+   - Summary statistics
+
+3. ✅ **User Activity Monitoring** (last login, failed attempts)
+   - Login history tracking
+   - Failed attempt monitoring
+   - Account lockout status
+   - Activity timeline
+
+**Baseline Security Features:**
+- ✅ Secure login/logout with bcrypt hashing
+- ✅ Account lockout (5 attempts / 15 min)
+- ✅ RBAC with Admin, Instructor, Student roles
+- ✅ User management (Admin only)
+- ✅ Profile management with password change
+- ✅ Session timeout handling
+- ✅ Secure configuration (no hardcoded secrets)
+- ✅ Comprehensive logging
 
 ### Testing
 - ✅ 10+ unit tests (models, services)

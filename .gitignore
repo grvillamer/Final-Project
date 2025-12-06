@@ -12,7 +12,12 @@ __pycache__/
 # Virtual environment
 venv/
 env/
+
+# Environment variables (NEVER commit secrets!)
 .env
+.env.local
+.env.production
+*.env
 
 # IDE files
 .vscode/
@@ -33,10 +38,16 @@ dist/
 .flet/
 
 # Logs
+logs/
 *.log
 
 # Test coverage
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Security - never commit these
+secrets/
+*.pem
+*.key
 
