@@ -892,14 +892,107 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                                 content=ft.Divider(color=theme["border"], height=1),
                                 padding=ft.padding.symmetric(horizontal=responsive["padding"]),
                             ),
-                            # Link rows with responsive padding
+                            # Feature links - responsive grid layout (2 columns on larger screens, 1 column on mobile)
                             ft.Container(
-                                content=ft.Column([
-                                    build_link_row(ft.Icons.HELP_OUTLINE, "Help & Support", "Get help and contact support", theme=theme, responsive=responsive),
-                                    build_link_row(ft.Icons.EMAIL_OUTLINED, "Contact Developer", "Send feedback or suggestions", theme=theme, responsive=responsive),
-                                    build_link_row(ft.Icons.DESCRIPTION_OUTLINED, "Terms of Service", "Read our terms and conditions", theme=theme, responsive=responsive),
-                                    build_link_row(ft.Icons.PRIVACY_TIP_OUTLINED, "Privacy Policy", "Learn how we protect your data", theme=theme, responsive=responsive),
-                                ], spacing=0),
+                                content=ft.ResponsiveRow([
+                                    # Help & Support
+                                    ft.Container(
+                                        content=ft.Row([
+                                            ft.Container(
+                                                content=ft.Icon(ft.Icons.HELP_OUTLINE, size=responsive["icon_size"], color=theme["accent"]),
+                                                width=40,
+                                                height=40,
+                                                bgcolor=ft.Colors.with_opacity(0.1, theme["accent"]),
+                                                border_radius=10,
+                                                alignment=ft.alignment.center,
+                                            ),
+                                            ft.Column([
+                                                ft.Text("Help & Support", size=responsive["font_body"], color=theme["text_primary"], weight=ft.FontWeight.W_500),
+                                                ft.Text("Get help and contact support", size=max(9, responsive["font_body"] - 3), color=theme["text_hint"]),
+                                            ], spacing=2, expand=True),
+                                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"] - 4, color=theme["text_hint"]),
+                                        ], spacing=responsive["section_spacing"], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                        padding=ft.padding.all(responsive["button_padding"]),
+                                        border_radius=12,
+                                        bgcolor=theme["bg_secondary"],
+                                        on_click=lambda e: None,
+                                        ink=True,
+                                        col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
+                                    ),
+                                    # Contact Developer
+                                    ft.Container(
+                                        content=ft.Row([
+                                            ft.Container(
+                                                content=ft.Icon(ft.Icons.EMAIL_OUTLINED, size=responsive["icon_size"], color="#4CAF50"),
+                                                width=40,
+                                                height=40,
+                                                bgcolor=ft.Colors.with_opacity(0.1, "#4CAF50"),
+                                                border_radius=10,
+                                                alignment=ft.alignment.center,
+                                            ),
+                                            ft.Column([
+                                                ft.Text("Contact Developer", size=responsive["font_body"], color=theme["text_primary"], weight=ft.FontWeight.W_500),
+                                                ft.Text("Send feedback or suggestions", size=max(9, responsive["font_body"] - 3), color=theme["text_hint"]),
+                                            ], spacing=2, expand=True),
+                                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"] - 4, color=theme["text_hint"]),
+                                        ], spacing=responsive["section_spacing"], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                        padding=ft.padding.all(responsive["button_padding"]),
+                                        border_radius=12,
+                                        bgcolor=theme["bg_secondary"],
+                                        on_click=lambda e: None,
+                                        ink=True,
+                                        col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
+                                    ),
+                                    # Terms of Service
+                                    ft.Container(
+                                        content=ft.Row([
+                                            ft.Container(
+                                                content=ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, size=responsive["icon_size"], color="#FF9800"),
+                                                width=40,
+                                                height=40,
+                                                bgcolor=ft.Colors.with_opacity(0.1, "#FF9800"),
+                                                border_radius=10,
+                                                alignment=ft.alignment.center,
+                                            ),
+                                            ft.Column([
+                                                ft.Text("Terms of Service", size=responsive["font_body"], color=theme["text_primary"], weight=ft.FontWeight.W_500),
+                                                ft.Text("Read our terms and conditions", size=max(9, responsive["font_body"] - 3), color=theme["text_hint"]),
+                                            ], spacing=2, expand=True),
+                                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"] - 4, color=theme["text_hint"]),
+                                        ], spacing=responsive["section_spacing"], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                        padding=ft.padding.all(responsive["button_padding"]),
+                                        border_radius=12,
+                                        bgcolor=theme["bg_secondary"],
+                                        on_click=lambda e: None,
+                                        ink=True,
+                                        col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
+                                    ),
+                                    # Privacy Policy
+                                    ft.Container(
+                                        content=ft.Row([
+                                            ft.Container(
+                                                content=ft.Icon(ft.Icons.PRIVACY_TIP_OUTLINED, size=responsive["icon_size"], color="#9C27B0"),
+                                                width=40,
+                                                height=40,
+                                                bgcolor=ft.Colors.with_opacity(0.1, "#9C27B0"),
+                                                border_radius=10,
+                                                alignment=ft.alignment.center,
+                                            ),
+                                            ft.Column([
+                                                ft.Text("Privacy Policy", size=responsive["font_body"], color=theme["text_primary"], weight=ft.FontWeight.W_500),
+                                                ft.Text("Learn how we protect your data", size=max(9, responsive["font_body"] - 3), color=theme["text_hint"]),
+                                            ], spacing=2, expand=True),
+                                            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=responsive["icon_size"] - 4, color=theme["text_hint"]),
+                                        ], spacing=responsive["section_spacing"], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                                        padding=ft.padding.all(responsive["button_padding"]),
+                                        border_radius=12,
+                                        bgcolor=theme["bg_secondary"],
+                                        on_click=lambda e: None,
+                                        ink=True,
+                                        col={"xs": 12, "sm": 12, "md": 6, "lg": 6},
+                                    ),
+                                ], spacing=responsive["section_spacing"], run_spacing=responsive["section_spacing"]),
+                                padding=ft.padding.symmetric(horizontal=responsive["padding"], vertical=responsive["section_spacing"]),
                             ),
                             ft.Container(height=responsive["section_spacing"]),
                         ]),
