@@ -364,8 +364,8 @@ This application implements comprehensive security controls for the Information 
 | Name | Role |
 |------|------|
 | Gracielle Ann Villamer | Developer |
-| Feliah Hadassah Salvamante | Documentation |
-| Marriet Jhoy Tagum | Missing in Action |
+| Feliah Hadassah Salvamante | Documentation & PPT |
+| Marriet Jhoy Tagum | Documentation |
 
 ## 📝 License
 
