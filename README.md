@@ -433,51 +433,50 @@ MIT License - Feel free to use and modify for educational purposes.
 ### Clear History
 ![Clear History - Instructor](FP_screenshots/clear_history.png)
 
-### Search Student
-![Search Student](FP_screenshots/search_bar.png)
+### Search Room
+![Search Room](FP_screenshots/search_bar.png)
 
 ### Set Class
-![Set Class](FP_screenshots/set_class_page.png)
+![Set Class](FP_screenshots/setclass_page.png)
 
 ### View Schedule
 ![Instructor View Schedule](FP_screenshots/view_schedule.png)
 
 ### QR Code Generator
-![Instructor QR Code](FP_screenshots/qr_code_instructor.png)
-
+![Instructor QR Code](<FP_screenshots/qr_code instructor.png>)
 ---
 
 ## ⚙️ SETTINGS PAGE
 
 ### Edit Profile Information
-![Edit Profile](FP_screenshots/edit_profileInfo.png)
+![Edit Profile](FP_screenshots/Edit_ProfileInfo.png)
 
 ### Appearance & Settings
-![Appearance Settings](FP_screenshots/appearanceSettings.png)
+![Appearance Settings](FP_screenshots/Apperance_settings.png)
 
 ### Language & Notification
-![Language & Notification](FP_screenshots/languageNotificationsSettings.png)
+![Language & Notification](FP_screenshots/Language_notificatioSettings.png)
 
 ### Privacy & Security
-![Privacy & Security](FP_screenshots/privacy_and_security.png)
+![Privacy & Security](FP_screenshots/privacy_security.png)
 
 ### About App
 ![About App](FP_screenshots/about_app.png)
 
 ### Help & Support
-![Help & Support](FP_screenshots/app_icon.png)
+![Help & Support](FP_screenshots/abt.App_Icon(1).png)
 
 ### Contact Developer
-![Contact Developer](FP_screenshots/about_App_Icon.png)
+![Contact Developer](FP_screenshots/abt.App_Icon(2).png)
 
 ### Terms of Service
-![Terms of Service](FP_screenshots/abt_App_Tos.png)
+![Terms of Service](FP_screenshots/abt.App_Icon(3).png)
 
 ### Privacy Policy
-![Privacy Policy](FP_screenshots/abt_App_policy.png)
+![Privacy Policy](FP_screenshots/abt.App_Icon(4).png)
 
 ### Logging Out
 ![Logout](FP_screenshots/logging_out.png)
 
 ### Deleting Account
-![Deleting Account](FP_screenshots/deleting_accout.png)
+![Deleting Account](FP_screenshots/deleting_account.png)
