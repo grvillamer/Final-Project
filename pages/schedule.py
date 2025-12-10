@@ -219,14 +219,25 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
         )
     
+    def time_to_minutes(time_str: str) -> int:
+        """Convert time string (HH:MM) to minutes from midnight"""
+        try:
+            parts = time_str.split(':')
+            return int(parts[0]) * 60 + int(parts[1])
+        except:
+            return 0
+    
     def build_timetable_view():
-        """Build weekly timetable grid view"""
+        """Build weekly timetable grid view with time-spanning blocks"""
         c = t()
         schedules = get_all_class_schedules()
         
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-        time_slots = ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", 
-                      "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"]
+        
+        # Time range: 7:00 AM to 9:00 PM (in 30-min increments for better precision)
+        start_hour = 7
+        end_hour = 21
+        slot_height = 30  # Height per 30-min slot
         
         # Group schedules by day
         schedules_by_day = {day: [] for day in days}
@@ -235,73 +246,190 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             if day in schedules_by_day:
                 schedules_by_day[day].append(sched)
         
-        # Build header row
-        header_row = ft.Row([
-            ft.Container(width=50),  # Time column
-            *[ft.Container(
-                content=ft.Text(day[:3], size=11, weight=ft.FontWeight.W_600, 
-                               color=c["text_primary"], text_align=ft.TextAlign.CENTER),
-                width=70, alignment=ft.alignment.center,
-            ) for day in days]
-        ], spacing=4)
-        
-        # Build timetable rows
-        timetable_rows = [header_row]
-        
-        for time_slot in time_slots:
-            hour = int(time_slot.split(':')[0])
-            display_time = f"{hour}:00" if hour < 12 else f"{hour-12 if hour > 12 else 12}:00 PM"
-            if hour < 12:
+        # Build time column
+        time_labels = []
+        for hour in range(start_hour, end_hour + 1):
+            if hour == 12:
+                display_time = "12:00 PM"
+            elif hour > 12:
+                display_time = f"{hour-12}:00 PM"
+            else:
                 display_time = f"{hour}:00 AM"
             
-            row_cells = [
+            time_labels.append(
                 ft.Container(
                     content=ft.Text(display_time, size=9, color=c["text_secondary"]),
-                    width=50, alignment=ft.alignment.center_right,
-                    padding=ft.padding.only(right=8),
+                    height=slot_height * 2,  # Each hour = 2 slots (30 min each)
+                    alignment=ft.alignment.top_right,
+                    padding=ft.padding.only(right=6, top=0),
                 )
-            ]
+            )
+        
+        time_column = ft.Container(
+            content=ft.Column(time_labels, spacing=0),
+            width=55,
+        )
+        
+        # Build day columns with class blocks
+        day_columns = []
+        for day in days:
+            day_schedules = schedules_by_day[day]
             
-            for day in days:
-                # Find classes at this time slot
-                day_schedules = schedules_by_day[day]
-                classes_at_time = [s for s in day_schedules 
-                                  if s['start_time'][:2] == time_slot[:2]]
-                
-                if classes_at_time:
-                    cell = build_class_block(classes_at_time[0], compact=True)
-                else:
-                    cell = ft.Container(
-                        content=ft.Container(
-                            bgcolor=c["bg_secondary"], border_radius=4,
-                            width=60, height=40,
-                        ),
-                        width=70, alignment=ft.alignment.center,
+            # Create a stack for this day to allow overlapping positioning
+            day_blocks = []
+            
+            # Background grid lines (hourly)
+            for i in range(end_hour - start_hour + 1):
+                day_blocks.append(
+                    ft.Container(
+                        bgcolor=c["bg_secondary"] if i % 2 == 0 else c["bg_primary"],
+                        border=ft.border.only(bottom=ft.BorderSide(1, c["border"])),
+                        width=70,
+                        height=slot_height * 2,
+                        top=i * slot_height * 2,
+                        left=0,
                     )
-                
-                row_cells.append(cell)
+                )
             
-            timetable_rows.append(ft.Row(row_cells, spacing=4))
+            # Add class blocks
+            for sched in day_schedules:
+                start_mins = time_to_minutes(sched['start_time'])
+                end_mins = time_to_minutes(sched['end_time'])
+                
+                # Calculate position and height
+                grid_start_mins = start_hour * 60
+                top_offset = ((start_mins - grid_start_mins) / 30) * slot_height
+                duration_mins = end_mins - start_mins
+                block_height = (duration_mins / 30) * slot_height
+                
+                if top_offset < 0 or block_height <= 0:
+                    continue
+                
+                # Check if this is the instructor's own schedule
+                is_own_schedule = is_instructor and sched.get('instructor_id') == user_id
+                
+                # Parse section from notes
+                notes = sched.get('notes', '')
+                section = ""
+                if 'Section:' in notes:
+                    try:
+                        section = notes.split('Section:')[1].strip()
+                    except:
+                        pass
+                
+                # Format times for display
+                start_time_display = sched['start_time'][:5]
+                end_time_display = sched['end_time'][:5]
+                
+                # Create class block with time indicators
+                class_content = ft.Column([
+                    # Start time indicator at top
+                    ft.Container(
+                        content=ft.Text(start_time_display, size=8, color="#ffffffcc", 
+                                       weight=ft.FontWeight.W_600),
+                        bgcolor="#00000033",
+                        padding=ft.padding.symmetric(horizontal=4, vertical=1),
+                        border_radius=3,
+                    ),
+                    ft.Container(expand=True),
+                    # Subject name in center
+                    ft.Text(
+                        sched['subject_name'][:12] + "..." if len(sched['subject_name']) > 12 else sched['subject_name'],
+                        size=9, color="#ffffff", weight=ft.FontWeight.W_700,
+                        text_align=ft.TextAlign.CENTER, max_lines=2,
+                        overflow=ft.TextOverflow.ELLIPSIS,
+                    ),
+                    ft.Text(sched.get('room_code', ''), size=7, color="#ffffffbb"),
+                    ft.Container(expand=True),
+                    # End time indicator at bottom
+                    ft.Container(
+                        content=ft.Text(end_time_display, size=8, color="#ffffffcc",
+                                       weight=ft.FontWeight.W_600),
+                        bgcolor="#00000033",
+                        padding=ft.padding.symmetric(horizontal=4, vertical=1),
+                        border_radius=3,
+                    ),
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2)
+                
+                # Shorter blocks get simplified content
+                if block_height < 60:
+                    class_content = ft.Column([
+                        ft.Text(f"{start_time_display}", size=7, color="#ffffffcc"),
+                        ft.Text(
+                            sched['subject_name'][:8] + "..." if len(sched['subject_name']) > 8 else sched['subject_name'],
+                            size=8, color="#ffffff", weight=ft.FontWeight.W_600, max_lines=1,
+                        ),
+                        ft.Text(f"{end_time_display}", size=7, color="#ffffffcc"),
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=1)
+                
+                day_blocks.append(
+                    ft.Container(
+                        content=class_content,
+                        bgcolor=c["accent"],
+                        border_radius=6,
+                        width=66,
+                        height=max(block_height - 2, 30),
+                        top=top_offset + 1,
+                        left=2,
+                        padding=ft.padding.symmetric(horizontal=4, vertical=4),
+                        shadow=ft.BoxShadow(
+                            spread_radius=0, blur_radius=4,
+                            color="#00000022", offset=ft.Offset(0, 2),
+                        ),
+                        tooltip=f"{sched['subject_name']}\n{sched['start_time']} - {sched['end_time']}\n{sched.get('room_name', '')}\n{sched.get('instructor_name', '')}",
+                    )
+                )
+            
+            # Calculate total height
+            total_height = (end_hour - start_hour + 1) * slot_height * 2
+            
+            day_columns.append(
+                ft.Column([
+                    # Day header
+                    ft.Container(
+                        content=ft.Text(day[:3], size=11, weight=ft.FontWeight.W_600,
+                                       color=c["text_primary"], text_align=ft.TextAlign.CENTER),
+                        width=70, height=28, alignment=ft.alignment.center,
+                        bgcolor=c["bg_card"],
+                        border_radius=ft.border_radius.only(top_left=8, top_right=8),
+                    ),
+                    # Day schedule stack
+                    ft.Container(
+                        content=ft.Stack(day_blocks),
+                        width=70,
+                        height=total_height,
+                    ),
+                ], spacing=0)
+            )
         
         # Legend
         legend = ft.Container(
             content=ft.Row([
                 ft.Container(width=12, height=12, bgcolor=c["accent"], border_radius=3),
                 ft.Text("Scheduled Class", size=10, color=c["text_secondary"]),
-                ft.Container(width=20),
-                ft.Container(width=12, height=12, bgcolor=c["bg_secondary"], border_radius=3),
-                ft.Text("Available", size=10, color=c["text_secondary"]),
+                ft.Container(width=12),
+                ft.Icon(ft.Icons.ACCESS_TIME, size=12, color=c["text_hint"]),
+                ft.Text("Time shown at start & end", size=10, color=c["text_hint"]),
             ], spacing=6, alignment=ft.MainAxisAlignment.CENTER),
             padding=ft.padding.symmetric(vertical=10),
         )
         
+        # Main timetable
+        timetable = ft.Row([
+            ft.Column([
+                ft.Container(height=28),  # Spacer for header alignment
+                time_column,
+            ], spacing=0),
+            *day_columns,
+        ], spacing=2, scroll=ft.ScrollMode.AUTO)
+        
         return ft.Column([
             legend,
             ft.Container(
-                content=ft.Column(timetable_rows, spacing=6, scroll=ft.ScrollMode.AUTO),
+                content=timetable,
                 expand=True,
             ),
-        ], expand=True)
+        ], expand=True, scroll=ft.ScrollMode.AUTO)
     
     def build_list_view():
         """Build list view of schedules by day"""
