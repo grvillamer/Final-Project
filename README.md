@@ -377,3 +377,42 @@ MIT License - Feel free to use and modify for educational purposes.
 - Designed for Camarines Sur Polytechnic Colleges (CSPC)
 - College of Computer Studies (CCS)
 - CS 3110 / APPDEV Final Project
+
+## SCREENSOTS
+- SIGN UP PAGE
+![Sign Up](FP_screenshots/SignUp_Page.png)
+
+- CREATE ACCOUNT PAGE 
+![Student Account](FP_screenshots/sched_studenAcc.png)
+![Admin/Instructor Account](FP_screenshots/Instructor_acc.png)
+
+- STUDENT ACCOUNT
+![Home page (student account)](FP_screenshots/Home_student.png)
+![View Class (student account)](FP_screenshots/viewClass_student.png)
+![History (student account)](FP_screenshots/History_stud.png)
+![Clear History (student account)](FP_screenshots/clear_history.png)
+![Schedule (student account)](FP_screenshots/sched_studenAcc.png)
+![View Schedule List (student account)](FP_screenshots/viewsched_student.png)
+![Attendance QR Code](FP_screenshots/attendance_code.png)
+
+- INSTRUCTOR ACCOUNT
+![Home page (instructor/admin account)](FP_screenshots/Homepage_Instructor.png)
+![History (instructor/admin account)](FP_screenshots/history_instructor.png)
+![Clear History (instructor/admin account)](FP_screenshots/clear_history.png)
+![Search (instructor/admin account)](FP_screenshots/search_bar.png)
+![Set Class (instructor/admin account)](FP_screenshots/setclass_page.png)
+![View Schedule (instructor/admin account)](FP_screenshots/view_schedule.png)
+![QR Code (instructor/admin account)](<FP_screenshots/qr_code instructor.png>)
+
+- SETTINGS PAGE
+![Editing Profile Information](FP_screenshots/Edit_ProfileInfo.png)
+![Apperance Settings](FP_screenshots/Apperance_settings.png)
+![Language & Notification](FP_screenshots/Language_notificatioSettings.png)
+![Privacy & Security](FP_screenshots/privacy_security.png)
+![About App](FP_screenshots/about_app.png)
+![Help & Support](FP_screenshots/abt.App_Icon(1).png)
+![Contact Developer](FP_screenshots/abt.App_Icon(2).png)
+![Terms of Service](FP_screenshots/abt.App_Icon(3).png)
+![Privacy Policy](FP_screenshots/abt.App_Icon(4).png)
+![Logging Out](FP_screenshots/logging_out.png)
+![Deleting Account](FP_screenshots/deleting_account.png)
