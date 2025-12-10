@@ -412,10 +412,10 @@ MIT License - Feel free to use and modify for educational purposes.
 ![Clear History - Student](FP_screenshots/clear_history.png)
 
 ### Schedule
-![Student Schedule](FP_screenshots/sched_stud.png)
+![Student Schedule](FP_screenshots/sched_studenAcc.png)
 
 ### View Schedule List
-![Student View Schedule List](FP_screenshots/view_sched_student.png)
+![Student View Schedule List](FP_screenshots/viewsched_student.png)
 
 ### Attendance QR Code
 ![Attendance QR Code](FP_screenshots/attendance_code.png)
