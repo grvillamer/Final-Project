@@ -403,7 +403,7 @@ MIT License - Feel free to use and modify for educational purposes.
 ![Student Home](FP_screenshots/Home_student.png)
 
 ### View Class
-![View Class - Student](FP_screenshots/viewclass_student.png)
+![View Class - Student](FP_screenshots/viewClass_student.png)
 
 ### History
 ![Student History](FP_screenshots/History_stud.png)
