@@ -384,13 +384,13 @@ MIT License - Feel free to use and modify for educational purposes.
 
 ## 🔐 SIGN UP PAGE
 ### Sign Up
-![Sign Up](FP_screenshots/Signup_Page.png)
+![Sign Up](FP_screenshots/SignUp_Page.png)
 
 ---
 
 ## 🆕 CREATE ACCOUNT PAGE
 ### Student Account
-![Student Account (Create)](FP_screenshots/student_studAcc.png)
+![Student Account (Create)](FP_screenshots/Student_Acc..png)
 
 ### Admin / Instructor Account
 ![Instructor Account (Create)](FP_screenshots/Instructor_acc.png)
