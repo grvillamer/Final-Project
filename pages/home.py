@@ -976,12 +976,24 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                 all_schedules.extend(schedules)
             
             # Group by time
-            time_slots = {}
+            time_slots = {f"{h:02d}:00": [] for h in range(7, 21)}
+
             for sched in all_schedules:
-                time_key = sched['start_time']
-                if time_key not in time_slots:
-                    time_slots[time_key] = []
-                time_slots[time_key].append(sched)
+                try:
+                    start_h = int(sched["start_time"].split(":")[0])
+                    end_h = int(sched["end_time"].split(":")[0])
+                except Exception:
+                    continue  # skip malformed times
+
+                # Clamp to displayed range (7:00–20:00)
+                start_h = max(start_h, 7)
+                end_h = min(end_h, 21)
+
+                # Add the schedule to each full hour it occupies
+                for h in range(start_h, end_h):
+                    key = f"{h:02d}:00"
+                    if key in time_slots:
+                        time_slots[key].append(sched)
             
             schedule_rows = []
             for hour in range(7, 21):
