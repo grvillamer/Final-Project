@@ -504,129 +504,301 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             # Student view - Scan/Enter QR code
             # Get recent attendance history
             history = db.get_student_attendance_history(user_id)[:5]
-            
-            return ft.Column([
-                # Header
-                ft.Container(
-                    content=ft.Column([
-                        ft.Container(
-                            content=ft.Icon(ft.Icons.QR_CODE_SCANNER, size=64, color=c["accent"]),
-                            bgcolor=c["accent_bg"], padding=20, border_radius=20,
-                        ),
-                        ft.Text("Mark Attendance", size=18, weight=ft.FontWeight.W_600, 
-                               color=c["text_primary"]),
-                        ft.Text("Scan QR code or enter the attendance code", 
-                               size=12, color=c["text_secondary"]),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=12),
-                    padding=20,
-                ),
-                
-                # Scanner placeholder
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.CAMERA_ALT, size=40, color=c["text_hint"]),
-                        ft.Text("Camera Scanner", size=14, weight=ft.FontWeight.W_500, 
-                               color=c["text_primary"]),
-                        ft.Text("Point your camera at the QR code", size=11, color=c["text_hint"]),
-                        ft.Container(height=8),
-                        ft.Container(
-                            content=ft.Text("📸 Tap to scan", size=12, color=c["accent"]),
-                            bgcolor=c["accent_bg"], padding=ft.padding.symmetric(horizontal=16, vertical=8),
-                            border_radius=20,
-                        ),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=6),
-                    bgcolor=c["bg_card"], padding=30, border_radius=12,
-                    border=ft.border.all(2, c["border"]),
-                ),
-                
-                # Or divider
-                ft.Container(
-                    content=ft.Row([
-                        ft.Container(height=1, bgcolor=c["border"], expand=True),
-                        ft.Text("or enter code manually", size=11, color=c["text_hint"]),
-                        ft.Container(height=1, bgcolor=c["border"], expand=True),
-                    ], spacing=12),
-                    padding=ft.padding.symmetric(vertical=16),
-                ),
-                
-                # Manual code entry
-                ft.Row([
-                    ft.TextField(
-                        ref=attendance_code_field,
-                        hint_text="Enter attendance code (e.g., ATT-20251210...)",
-                        border_color=c["border"],
-                        focused_border_color=c["accent"],
-                        hint_style=ft.TextStyle(color=c["text_hint"], size=12),
-                        text_style=ft.TextStyle(color=c["text_primary"]),
-                        cursor_color=c["accent"],
-                        border_radius=10,
-                        expand=True,
-                        on_submit=submit_attendance_code,
-                        prefix_icon=ft.Icons.KEY,
-                    ),
-                    ft.ElevatedButton(
-                        content=ft.Icon(ft.Icons.SEND, size=20),
-                        bgcolor=c["accent"],
-                        color="#ffffff",
-                        height=50,
-                        width=50,
-                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
-                        on_click=submit_attendance_code,
-                    ),
-                ], spacing=10),
-                
-                ft.Container(height=20),
-                
-                # Recent attendance
-                ft.Text("Recent Attendance", size=14, weight=ft.FontWeight.W_600, 
-                       color=c["text_primary"]),
-                ft.Container(height=8),
-                
-                ft.Column([
+
+            # Simple breakpoint based on window width
+            page_width = page.width or 400
+            is_compact = page_width < 600
+            max_content_width = 520
+            content_width = min(page_width - 32, max_content_width)
+
+            main_column = ft.Column(
+                [
+                    # Header
                     ft.Container(
-                        content=ft.Row([
-                            ft.Container(
-                                content=ft.Icon(
-                                    ft.Icons.CHECK_CIRCLE if record.get('status') == 'present' else
-                                    ft.Icons.ACCESS_TIME if record.get('status') == 'late' else
-                                    ft.Icons.CANCEL,
-                                    size=20,
-                                    color="#4CAF50" if record.get('status') == 'present' else
-                                    "#FFC107" if record.get('status') == 'late' else "#F44336",
+                        content=ft.Column(
+                            [
+                                ft.Container(
+                                    content=ft.Icon(
+                                        ft.Icons.QR_CODE_SCANNER,
+                                        size=64 if is_compact else 80,
+                                        color=c["accent"],
+                                    ),
+                                    bgcolor=c["accent_bg"],
+                                    padding=20 if is_compact else 24,
+                                    border_radius=20,
                                 ),
-                                width=36, height=36, 
-                                bgcolor=("#4CAF5020" if record.get('status') == 'present' else
-                                        "#FFC10720" if record.get('status') == 'late' else "#F4433620"),
-                                border_radius=8, alignment=ft.alignment.center,
-                            ),
-                            ft.Column([
-                                ft.Text(record.get('class_name', 'Class'), size=13,
-                                       weight=ft.FontWeight.W_500, color=c["text_primary"]),
-                                ft.Text(record.get('session_date', ''), size=10, color=c["text_hint"]),
-                            ], spacing=2, expand=True),
-                            ft.Container(
-                                content=ft.Text(record.get('status', 'absent').capitalize(), 
-                                               size=10, weight=ft.FontWeight.W_600, color="#ffffff"),
-                                bgcolor="#4CAF50" if record.get('status') == 'present' else
-                                       "#FFC107" if record.get('status') == 'late' else "#F44336",
-                                padding=ft.padding.symmetric(horizontal=10, vertical=4),
-                                border_radius=12,
-                            ),
-                        ], spacing=10),
-                        bgcolor=c["bg_card"], padding=12, border_radius=10,
-                        border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
-                    )
-                    for record in history
-                ] if history else [
+                                ft.Text(
+                                    "Mark Attendance",
+                                    size=18 if is_compact else 20,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["text_primary"],
+                                ),
+                                ft.Text(
+                                    "Scan QR code or enter the attendance code",
+                                    size=12,
+                                    color=c["text_secondary"],
+                                    text_align=ft.TextAlign.CENTER,
+                                ),
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=12,
+                        ),
+                        padding=20 if is_compact else 24,
+                    ),
+
+                    # Scanner card
                     ft.Container(
-                        content=ft.Column([
-                            ft.Icon(ft.Icons.HISTORY, size=32, color=c["text_hint"]),
-                            ft.Text("No attendance history yet", size=12, color=c["text_hint"]),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                        padding=30,
-                    )
-                ], spacing=8),
-            ], spacing=8, scroll=ft.ScrollMode.AUTO)
+                        content=ft.Column(
+                            [
+                                ft.Icon(
+                                    ft.Icons.CAMERA_ALT,
+                                    size=40 if is_compact else 48,
+                                    color=c["text_hint"],
+                                ),
+                                ft.Text(
+                                    "Camera Scanner",
+                                    size=14,
+                                    weight=ft.FontWeight.W_500,
+                                    color=c["text_primary"],
+                                ),
+                                ft.Text(
+                                    "Point your camera at the QR code",
+                                    size=11,
+                                    color=c["text_hint"],
+                                    text_align=ft.TextAlign.CENTER,
+                                ),
+                                ft.Container(height=8),
+                                ft.Container(
+                                    content=ft.Text(
+                                        "Tap to scan",
+                                        size=12,
+                                        color=c["accent"],
+                                    ),
+                                    bgcolor=c["accent_bg"],
+                                    padding=ft.padding.symmetric(
+                                        horizontal=16, vertical=8
+                                    ),
+                                    border_radius=20,
+                                ),
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            spacing=6,
+                        ),
+                        bgcolor=c["bg_card"],
+                        padding=24 if is_compact else 28,
+                        border_radius=12,
+                        border=ft.border.all(2, c["border"]),
+                        width=content_width,
+                    ),
+
+                    # Or divider
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.Container(height=1, bgcolor=c["border"], expand=True),
+                                ft.Text(
+                                    "or enter code manually",
+                                    size=11,
+                                    color=c["text_hint"],
+                                ),
+                                ft.Container(height=1, bgcolor=c["border"], expand=True),
+                            ],
+                            spacing=12,
+                        ),
+                        padding=ft.padding.symmetric(vertical=16),
+                        width=content_width,
+                    ),
+
+                    # Manual code entry
+                    ft.Container(
+                        width=content_width,
+                        content=ft.Row(
+                            [
+                                ft.TextField(
+                                    ref=attendance_code_field,
+                                    hint_text="Enter attendance code (e.g., ATT-20251210...)",
+                                    border_color=c["border"],
+                                    focused_border_color=c["accent"],
+                                    hint_style=ft.TextStyle(
+                                        color=c["text_hint"], size=12
+                                    ),
+                                    text_style=ft.TextStyle(color=c["text_primary"]),
+                                    cursor_color=c["accent"],
+                                    border_radius=10,
+                                    expand=True,
+                                    on_submit=submit_attendance_code,
+                                    prefix_icon=ft.Icons.KEY,
+                                ),
+                                ft.ElevatedButton(
+                                    content=ft.Icon(ft.Icons.SEND, size=20),
+                                    bgcolor=c["accent"],
+                                    color="#ffffff",
+                                    height=50,
+                                    width=50,
+                                    style=ft.ButtonStyle(
+                                        shape=ft.RoundedRectangleBorder(radius=10)
+                                    ),
+                                    on_click=submit_attendance_code,
+                                ),
+                            ],
+                            spacing=10,
+                        ),
+                    ),
+
+                    ft.Container(height=20),
+
+                    # Recent attendance
+                    ft.Container(
+                        width=content_width,
+                        content=ft.Column(
+                            [
+                                ft.Text(
+                                    "Recent Attendance",
+                                    size=14,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["text_primary"],
+                                ),
+                                ft.Container(height=8),
+                                ft.Column(
+                                    [
+                                        ft.Container(
+                                            content=ft.Row(
+                                                [
+                                                    ft.Container(
+                                                        content=ft.Icon(
+                                                            ft.Icons.CHECK_CIRCLE
+                                                            if record.get("status")
+                                                            == "present"
+                                                            else ft.Icons.ACCESS_TIME
+                                                            if record.get("status")
+                                                            == "late"
+                                                            else ft.Icons.CANCEL,
+                                                            size=20,
+                                                            color="#4CAF50"
+                                                            if record.get("status")
+                                                            == "present"
+                                                            else "#FFC107"
+                                                            if record.get("status")
+                                                            == "late"
+                                                            else "#F44336",
+                                                        ),
+                                                        width=36,
+                                                        height=36,
+                                                        bgcolor=(
+                                                            "#4CAF5020"
+                                                            if record.get("status")
+                                                            == "present"
+                                                            else "#FFC10720"
+                                                            if record.get("status")
+                                                            == "late"
+                                                            else "#F4433620"
+                                                        ),
+                                                        border_radius=8,
+                                                        alignment=ft.alignment.center,
+                                                    ),
+                                                    ft.Column(
+                                                        [
+                                                            ft.Text(
+                                                                record.get(
+                                                                    "class_name",
+                                                                    "Class",
+                                                                ),
+                                                                size=13,
+                                                                weight=ft.FontWeight.W_500,
+                                                                color=c["text_primary"],
+                                                            ),
+                                                            ft.Text(
+                                                                record.get(
+                                                                    "session_date", ""
+                                                                ),
+                                                                size=10,
+                                                                color=c["text_hint"],
+                                                            ),
+                                                        ],
+                                                        spacing=2,
+                                                        expand=True,
+                                                    ),
+                                                    ft.Container(
+                                                        content=ft.Text(
+                                                            record.get(
+                                                                "status", "absent"
+                                                            ).capitalize(),
+                                                            size=10,
+                                                            weight=ft.FontWeight.W_600,
+                                                            color="#ffffff",
+                                                        ),
+                                                        bgcolor=(
+                                                            "#4CAF50"
+                                                            if record.get("status")
+                                                            == "present"
+                                                            else "#FFC107"
+                                                            if record.get("status")
+                                                            == "late"
+                                                            else "#F44336"
+                                                        ),
+                                                        padding=ft.padding.symmetric(
+                                                            horizontal=10, vertical=4
+                                                        ),
+                                                        border_radius=12,
+                                                    ),
+                                                ],
+                                                spacing=10,
+                                            ),
+                                            bgcolor=c["bg_card"],
+                                            padding=12,
+                                            border_radius=10,
+                                            border=ft.border.all(
+                                                1, c["border"]
+                                            )
+                                            if page.theme_mode
+                                            == ft.ThemeMode.LIGHT
+                                            else None,
+                                        )
+                                        for record in history
+                                    ]
+                                    if history
+                                    else [
+                                        ft.Container(
+                                            content=ft.Column(
+                                                [
+                                                    ft.Icon(
+                                                        ft.Icons.HISTORY,
+                                                        size=32,
+                                                        color=c["text_hint"],
+                                                    ),
+                                                    ft.Text(
+                                                        "No attendance history yet",
+                                                        size=12,
+                                                        color=c["text_hint"],
+                                                    ),
+                                                ],
+                                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                                spacing=8,
+                                            ),
+                                            padding=30,
+                                        )
+                                    ],
+                                    spacing=8,
+                                ),
+                            ],
+                            spacing=0,
+                        ),
+                    ),
+                ],
+                spacing=8 if is_compact else 12,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+
+            # Center the main column and allow scrolling on small screens
+            return ft.Container(
+                alignment=ft.alignment.top_center,
+                content=main_column,
+                expand=True,
+                padding=ft.padding.symmetric(
+                    horizontal=16 if is_compact else 24,
+                    vertical=16 if is_compact else 24,
+                ),
+            )
     
     def show_delete_schedule_dialog(schedule):
         """Show confirmation dialog to delete a schedule"""

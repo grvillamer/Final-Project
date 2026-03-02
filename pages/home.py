@@ -189,17 +189,19 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         
         # Time options
         time_options = []
-        for hour in range(7, 21):
-            for minute in [0, 30]:
-                time_str = f"{hour:02d}:{minute:02d}"
-                display = f"{hour:02d}:{minute:02d}"
-                if hour < 12:
-                    display += " AM"
-                elif hour == 12:
-                    display += " PM"
-                else:
-                    display = f"{hour-12:02d}:{minute:02d} PM"
-                time_options.append(ft.dropdown.Option(time_str, display))
+        for hour in range(7, 21):  # 7:00 AM to 8:00 PM
+            time_str = f"{hour:02d}:00"
+
+            if hour == 0:
+                display = "12:00 AM"
+            elif hour < 12:
+                display = f"{hour:02d}:00 AM"
+            elif hour == 12:
+                display = "12:00 PM"
+            else:
+                display = f"{hour-12:02d}:00 PM"
+
+            time_options.append(ft.dropdown.Option(time_str, display))
         
         # Semester options
         semester_options = [
