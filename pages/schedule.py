@@ -68,6 +68,28 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         
         return all_schedules
     
+    def get_student_schedules():
+        if not is_student:
+            return []
+
+        # Classes the student is enrolled in
+        enrolled_classes = db.get_enrolled_classes(user_id)
+        if not enrolled_classes:
+            return []
+
+        # Match by (subject name, instructor) between classes and room schedules
+        enrolled_keys = {(cls['name'], cls['instructor_id']) for cls in enrolled_classes}
+
+        # Reuse all room schedules, then filter to just this student's classes
+        all_schedules = get_all_class_schedules()
+        student_schedules = [
+            sched
+            for sched in all_schedules
+            if (sched.get('subject_name'), sched.get('instructor_id')) in enrolled_keys
+        ]
+
+        return student_schedules
+    
     def get_instructor_schedules():
         """Get schedules for the current instructor"""
         if not is_instructor:
@@ -731,9 +753,9 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             return 0
     
     def build_timetable_view():
-        """Build weekly timetable grid view with time-spanning blocks"""
         c = t()
-        schedules = get_all_class_schedules()
+        # For students, show only their own classes; otherwise show all room schedules
+        schedules = get_student_schedules() if is_student else get_all_class_schedules()
         
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
         
@@ -937,7 +959,15 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     def build_list_view():
         """Build list view of schedules by day"""
         c = t()
-        schedules = get_all_class_schedules() if not is_instructor else get_instructor_schedules()
+        if is_student:
+            # Student: only their own classes
+            schedules = get_student_schedules()
+        elif is_instructor:
+            # Instructor: their own room schedules
+            schedules = get_instructor_schedules()
+        else:
+            # Fallback: all room schedules
+            schedules = get_all_class_schedules()
         
         if not schedules:
             return ft.Container(
