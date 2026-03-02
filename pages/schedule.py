@@ -22,10 +22,49 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}"
     is_instructor = user.get('role') == 'instructor'
     is_student = user.get('role') == 'student'
-    
+
+    def get_current_semester_info():
+        """
+        Return (current_semester_label, all_semester_labels) based on today's date.
+
+        Assumptions:
+        - Academic year starts in August.
+        - 1st Semester: Aug–Dec
+        - 2nd Semester: Jan–May
+        - Summer: Jun–Jul
+        """
+        today = datetime.now()
+        year = today.year
+
+        # Determine academic year start
+        if today.month >= 8:  # Aug–Dec → new academic year starts
+            start_year = year
+        else:                 # Jan–Jul → still in academic year that started last year
+            start_year = year - 1
+        end_year = start_year + 1
+
+        ay_label = f"{start_year}-{end_year}"
+
+        semester_labels = [
+            f"1st Semester {ay_label}",
+            f"2nd Semester {ay_label}",
+            f"Summer {end_year}",
+        ]
+
+        # Pick current semester based on month
+        m = today.month
+        if 8 <= m <= 12:
+            current = semester_labels[0]  # 1st sem
+        elif 1 <= m <= 5:
+            current = semester_labels[1]  # 2nd sem
+        else:
+            current = semester_labels[2]  # summer
+
+        return current, semester_labels
     # State
     view_mode = {"value": "timetable"}  # timetable, list, or qr
-    current_semester = {"value": "1st Semester 2024-2025"}
+    semester_current, semester_options = get_current_semester_info()
+    current_semester = {"value": semester_current}
     active_qr_session = {"data": None}
     qr_timer = {"remaining": 0, "running": False}
     
@@ -1053,17 +1092,13 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             ft.Container(
                 content=ft.Row([
                     ft.Icon(ft.Icons.SCHOOL, size=16, color=c["accent"]),
-                    ft.Dropdown(
+                                        ft.Dropdown(
                         value=current_semester["value"],
-                        options=[
-                            ft.dropdown.Option("1st Semester 2024-2025"),
-                            ft.dropdown.Option("2nd Semester 2024-2025"),
-                            ft.dropdown.Option("Summer 2025"),
-                        ],
+                        options=[ft.dropdown.Option(opt) for opt in semester_options],
                         border_color="transparent",
                         text_style=ft.TextStyle(color=c["text_primary"], size=12, weight=ft.FontWeight.W_500),
                         content_padding=ft.padding.symmetric(horizontal=8),
-                        on_change=lambda e: None,  # Could filter by semester
+                        on_change=lambda e: current_semester.__setitem__("value", e.control.value),
                     ),
                 ], spacing=8),
                 bgcolor=c["bg_card"], padding=ft.padding.symmetric(horizontal=12, vertical=4),
