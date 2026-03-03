@@ -44,6 +44,16 @@ class Config:
     # Database
     DATABASE_PATH: str = os.getenv('DATABASE_PATH', 'spotted.db')
     
+    # Outbound email (optional, used for password reset codes)
+    SMTP_ENABLED: bool = os.getenv('SMTP_ENABLED', 'false').lower() == 'true'
+    SMTP_HOST: str = os.getenv('SMTP_HOST', '')
+    SMTP_PORT: int = int(os.getenv('SMTP_PORT', '587'))
+    SMTP_USE_TLS: bool = os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
+    SMTP_USERNAME: str = os.getenv('SMTP_USERNAME', '')
+    SMTP_PASSWORD: str = os.getenv('SMTP_PASSWORD', '')
+    SMTP_FROM_EMAIL: str = os.getenv('SMTP_FROM_EMAIL', SMTP_USERNAME or 'no-reply@example.com')
+    SMTP_FROM_NAME: str = os.getenv('SMTP_FROM_NAME', APP_NAME)
+    
     # Logging
     LOG_LEVEL: str = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FILE: str = os.getenv('LOG_FILE', 'app.log')

@@ -7,6 +7,7 @@ import random
 from database import db
 from utils.helpers import validate_email
 from utils.theme import get_theme
+from config import config
 
 
 def ForgotPasswordPage(page: ft.Page, on_back=None):
@@ -75,12 +76,8 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
                         indicator.bgcolor = c["border"]
         page.update()
     
-    def simulate_send_email(email: str, code: str):
-        """Simulate sending verification code to CSPC email"""
-        # In production, this would call an email API
-        # For demo, we show a notification with the code
-        
-        # Mask email for display
+    def _mask_email(email: str) -> str:
+        """Mask email for display (e.g., gv***er@my.cspc.edu.ph)."""
         parts = email.split('@')
         if len(parts) == 2:
             username = parts[0]
@@ -93,6 +90,47 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
             masked = email
         
         return masked
+
+    def _send_verification_email(email: str, code: str) -> tuple[bool, str]:
+        """
+        Try to send the verification code via SMTP.
+        Returns (success, error_message).
+        """
+        if not config.SMTP_ENABLED or not config.SMTP_HOST or not config.SMTP_FROM_EMAIL:
+            return False, "Email sending not configured"
+        
+        try:
+            from email.message import EmailMessage
+            import smtplib
+            
+            msg = EmailMessage()
+            msg["Subject"] = "Your CSPC password reset code"
+            msg["From"] = f"{config.SMTP_FROM_NAME} <{config.SMTP_FROM_EMAIL}>"
+            msg["To"] = email
+            msg.set_content(
+                f"Hi,\n\n"
+                f"Here is your CSPC password reset verification code: {code}\n\n"
+                f"This code is valid for 10 minutes. If you did not request a password reset, "
+                f"you can safely ignore this email.\n\n"
+                f"{config.APP_NAME}"
+            )
+            
+            if config.SMTP_USE_TLS:
+                with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
+                    server.starttls()
+                    if config.SMTP_USERNAME:
+                        server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT) as server:
+                    if config.SMTP_USERNAME:
+                        server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+                    server.send_message(msg)
+            
+            return True, ""
+        except Exception as exc:
+            print(f"[FORGOT_PASSWORD] Failed to send verification email: {exc}")
+            return False, str(exc)
     
     def handle_send_code(e):
         hide_messages()
@@ -121,8 +159,9 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
             state["verification_code"] = generate_code()  # Generate new code
             state["step"] = 2
             
-            # Simulate sending email
-            masked_email = simulate_send_email(email, state["verification_code"])
+            # Try to send verification email (falls back to demo notification if not configured)
+            masked_email = _mask_email(email)
+            email_sent, error_msg = _send_verification_email(email, state["verification_code"])
             
             # Update UI
             email_section.current.visible = False
@@ -133,19 +172,35 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
             action_btn.current.content.controls[0].name = ft.Icons.VERIFIED_USER
             action_btn.current.content.controls[1].value = "Verify Code"
             
-            # Show email sent notification with code (demo only)
-            page.snack_bar = ft.SnackBar(
-                content=ft.Row([
-                    ft.Icon(ft.Icons.EMAIL, color="#ffffff", size=20),
-                    ft.Column([
-                        ft.Text("Verification code sent!", weight=ft.FontWeight.W_600, color="#ffffff"),
-                        ft.Text(f"Code: {state['verification_code']} (Demo)", size=12, color="#ffffff"),
-                    ], spacing=0, expand=True),
-                ], spacing=12),
-                bgcolor="#4CAF50",
-                duration=10000,
-            )
-            page.snack_bar.open = True
+            # Notification
+            if email_sent:
+                # Real email: don't show the code in UI
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.EMAIL, color="#ffffff", size=20),
+                        ft.Column([
+                            ft.Text("Verification code sent!", weight=ft.FontWeight.W_600, color="#ffffff"),
+                            ft.Text("Please check your CSPC email to continue.", size=12, color="#ffffff"),
+                        ], spacing=0, expand=True),
+                    ], spacing=12),
+                    bgcolor="#4CAF50",
+                    duration=8000,
+                )
+                page.snack_bar.open = True
+            else:
+                # Demo/dev mode: still show code for convenience
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.EMAIL, color="#ffffff", size=20),
+                        ft.Column([
+                            ft.Text("Demo: verification code generated", weight=ft.FontWeight.W_600, color="#ffffff"),
+                            ft.Text(f"Code: {state['verification_code']} (no email configured)", size=12, color="#ffffff"),
+                        ], spacing=0, expand=True),
+                    ], spacing=12),
+                    bgcolor="#4CAF50",
+                    duration=10000,
+                )
+                page.snack_bar.open = True
             
             show_success(f"Verification code sent to {masked_email}")
         else:
@@ -206,7 +261,7 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
             return
         
         # Update password
-        success = db.update_password(state["user"]["id"], new_password)
+        success, error_msg = db.update_password(state["user"]["id"], new_password)
         
         if success:
             action_btn.current.disabled = True
@@ -231,7 +286,7 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
             page.snack_bar.open = True
             page.update()
         else:
-            show_error("Failed to reset password. Please try again.")
+            show_error(error_msg or "Failed to reset password. Please try again.")
     
     def handle_action(e):
         if state["step"] == 1:
@@ -267,18 +322,44 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
     
     def resend_code(e):
         state["verification_code"] = generate_code()  # Generate new code
+        email = state.get("email")
         
-        page.snack_bar = ft.SnackBar(
-            content=ft.Row([
-                ft.Icon(ft.Icons.REFRESH, color="#ffffff", size=20),
-                ft.Column([
-                    ft.Text("New code sent!", weight=ft.FontWeight.W_600, color="#ffffff"),
-                    ft.Text(f"Code: {state['verification_code']} (Demo)", size=12, color="#ffffff"),
-                ], spacing=0, expand=True),
-            ], spacing=12),
-            bgcolor="#4CAF50",
-            duration=8000,
-        )
+        if email:
+            masked_email = _mask_email(email)
+            email_sent, error_msg = _send_verification_email(email, state["verification_code"])
+            
+            if email_sent:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.REFRESH, color="#ffffff", size=20),
+                        ft.Column([
+                            ft.Text("New code sent!", weight=ft.FontWeight.W_600, color="#ffffff"),
+                            ft.Text(f"Please check {masked_email} for the latest code.", size=12, color="#ffffff"),
+                        ], spacing=0, expand=True),
+                    ], spacing=12),
+                    bgcolor="#4CAF50",
+                    duration=8000,
+                )
+            else:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.REFRESH, color="#ffffff", size=20),
+                        ft.Column([
+                            ft.Text("Demo: new code generated", weight=ft.FontWeight.W_600, color="#ffffff"),
+                            ft.Text(f"Code: {state['verification_code']} (no email configured)", size=12, color="#ffffff"),
+                        ], spacing=0, expand=True),
+                    ], spacing=12),
+                    bgcolor="#4CAF50",
+                    duration=8000,
+                )
+        else:
+            # No email on record (shouldn't normally happen once step 1 is complete)
+            page.snack_bar = ft.SnackBar(
+                content=ft.Text("Unable to resend code: email address not available.", color="#ffffff"),
+                bgcolor="#F44336",
+                duration=5000,
+            )
+        
         page.snack_bar.open = True
         page.update()
     
@@ -476,14 +557,18 @@ def ForgotPasswordPage(page: ft.Page, on_back=None):
             
             ft.Container(height=8),
             
-            # Demo note
+            # Info note
             ft.Container(
                 content=ft.Row([
                     ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color="#FFC107"),
                     ft.Column([
-                        ft.Text("Demo Mode", size=11, weight=ft.FontWeight.W_600, color="#FFC107"),
-                        ft.Text("Verification code will be shown in the notification for testing.",
-                               size=10, color=c["text_secondary"]),
+                        ft.Text("Reset via Email", size=11, weight=ft.FontWeight.W_600, color="#FFC107"),
+                        ft.Text(
+                            "A 6-digit code will be sent to your CSPC email. "
+                            "In demo mode, the code may also appear in a notification.",
+                            size=10,
+                            color=c["text_secondary"],
+                        ),
                     ], spacing=0, expand=True),
                 ], spacing=10),
                 bgcolor=c["accent_bg"], padding=12, border_radius=8,
