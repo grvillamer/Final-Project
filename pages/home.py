@@ -2,6 +2,7 @@
 SpottEd Home Page - CSPC Smart Classroom Availability and Locator App
 Full Classroom Management Interface with Search, Filters, Map View, and Scheduling
 """
+import json
 import flet as ft
 from database import db
 from datetime import datetime, timedelta
@@ -23,6 +24,7 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     student_id = user.get('student_id', '')
     is_instructor = user.get('role') == 'instructor'
     is_admin = user.get('role') == 'admin'
+    is_student = user.get('role') == 'student'
     user_id = user.get('id')
     
     # State
@@ -31,7 +33,21 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     search_query = {"value": ""}
     schedule_view = {"value": "daily"}  # daily, weekly
     selected_date = {"value": datetime.now().strftime("%Y-%m-%d")}
-    
+
+    # Personal schedule (read-only preview on home schedule; editing happens in Schedule page)
+    def load_personal_schedule():
+        if not is_student or not user_id:
+            return []
+        try:
+            raw = db.get_setting(user_id, "personal_schedule", "[]")
+            if not raw:
+                return []
+            return json.loads(raw)
+        except Exception:
+            return []
+
+    personal_schedule = {"items": load_personal_schedule()}
+
     # Refs
     search_field = ft.Ref[ft.TextField]()
     content_container = ft.Ref[ft.Container]()
@@ -936,9 +952,9 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         
         return ft.Column(floor_sections, spacing=0)
     
-    # ==================== SCHEDULE VIEW ====================
+    # ==================== SCHEDULE VIEW (ROOM-BASED, FOR INSTRUCTORS/ADMINS) ====================
     
-    def build_schedule_view():
+    def _build_room_schedule_view():
         c = t()
         today = datetime.now()
         
@@ -1058,7 +1074,7 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                 ft.Container(height=8),
                 ft.Text("Weekly schedule view - showing current week", size=12, color=c["text_secondary"]),
             ])
-    
+
     def change_date(delta):
         current = datetime.strptime(selected_date["value"], "%Y-%m-%d")
         new_date = current + timedelta(days=delta)
@@ -1068,7 +1084,379 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     def toggle_schedule_view(view):
         schedule_view["value"] = view
         update_content()
-    
+
+    # ==================== STUDENT WEEKLY TIMETABLE VIEW ====================
+
+    def _time_to_minutes(time_str: str) -> int:
+        """Convert time string (HH:MM) to minutes from midnight."""
+        try:
+            parts = time_str.split(":")
+            return int(parts[0]) * 60 + int(parts[1])
+        except Exception:
+            return 0
+
+    def _get_all_class_schedules_for_student():
+        """Reuse room schedules to build a weekly view (similar to Schedule page)."""
+        classrooms = db.get_all_classrooms()
+        all_schedules = []
+
+        today = datetime.now()
+        for i in range(7):
+            date = today + timedelta(days=i)
+            date_str = date.strftime("%Y-%m-%d")
+            day_name = date.strftime("%A")
+
+            for room in classrooms:
+                schedules = db.get_room_schedules(room["id"], date_str)
+                for sched in schedules:
+                    sched_dict = dict(sched)
+                    sched_dict["room_name"] = room["name"]
+                    sched_dict["room_code"] = room["code"]
+                    sched_dict["room_floor"] = room.get("floor", "")
+                    sched_dict["day"] = day_name
+
+                    # Parse day from notes if available
+                    notes = sched_dict.get("notes", "")
+                    if "Day:" in notes:
+                        try:
+                            day_part = notes.split("Day:")[1].split("|")[0].strip()
+                            sched_dict["day"] = day_part
+                        except Exception:
+                            pass
+
+                    all_schedules.append(sched_dict)
+
+        return all_schedules
+
+    def _get_student_schedules_for_home():
+        """Classes a student is enrolled in + their personal timetable items."""
+        if not is_student or not user_id:
+            return []
+
+        enrolled_classes = db.get_enrolled_classes(user_id)
+        if not enrolled_classes:
+            enrolled_classes = []
+
+        # Match by (subject name, instructor) between classes and room schedules
+        enrolled_keys = {(cls["name"], cls["instructor_id"]) for cls in enrolled_classes}
+
+        all_schedules = _get_all_class_schedules_for_student()
+        student_schedules = [
+            sched
+            for sched in all_schedules
+            if (sched.get("subject_name"), sched.get("instructor_id")) in enrolled_keys
+        ]
+
+        # Add personal schedule entries as virtual classes
+        for idx, item in enumerate(personal_schedule["items"]):
+            day = item.get("day")
+            if not day:
+                continue
+            student_schedules.append(
+                {
+                    "id": f"personal-{idx}",
+                    "day": day,
+                    "subject_name": item.get("title") or item.get("subject_name") or "Personal Class",
+                    "start_time": item.get("start_time", "08:00"),
+                    "end_time": item.get("end_time", "09:00"),
+                    "room_name": item.get("location") or item.get("room_name") or "Personal",
+                    "room_code": item.get("room_code", ""),
+                    "room_floor": item.get("room_floor", ""),
+                    "instructor_name": "My schedule",
+                    "notes": item.get("notes", ""),
+                    "is_personal": True,
+                }
+            )
+
+        return student_schedules
+
+    def _build_student_timetable_view():
+        """Weekly timetable grid for the current student (like class plotting)."""
+        c = t()
+
+        schedules = _get_student_schedules_for_home()
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+        # Time range 7:00–19:00 to stay compact on home
+        start_hour = 7
+        end_hour = 19
+        slot_height = 26  # pixels per 30 mins
+
+        # Group schedules by day
+        schedules_by_day = {day: [] for day in days}
+        for sched in schedules:
+            day = sched.get("day", "")
+            if day in schedules_by_day:
+                schedules_by_day[day].append(sched)
+
+        # Time labels column
+        time_labels = []
+        for hour in range(start_hour, end_hour + 1):
+            if hour == 12:
+                display_time = "12:00 PM"
+            elif hour > 12:
+                display_time = f"{hour-12}:00 PM"
+            else:
+                display_time = f"{hour}:00 AM"
+
+            time_labels.append(
+                ft.Container(
+                    content=ft.Text(display_time, size=9, color=c["text_secondary"]),
+                    height=slot_height * 2,  # hour = 2 slots (30 mins)
+                    alignment=ft.alignment.top_right,
+                    padding=ft.padding.only(right=6, top=0),
+                )
+            )
+
+        time_column = ft.Container(
+            content=ft.Column(time_labels, spacing=0),
+            width=60,
+        )
+
+        # Build day columns
+        day_columns = []
+        for day in days:
+            day_schedules = schedules_by_day[day]
+            day_blocks = []
+
+            # Background alternating bands
+            for i in range(end_hour - start_hour + 1):
+                day_blocks.append(
+                    ft.Container(
+                        bgcolor=c["bg_secondary"] if i % 2 == 0 else c["bg_primary"],
+                        border=ft.border.only(bottom=ft.BorderSide(1, c["border"])),
+                        width=80,
+                        height=slot_height * 2,
+                        top=i * slot_height * 2,
+                        left=0,
+                    )
+                )
+
+            # Class blocks
+            for sched in day_schedules:
+                start_mins = _time_to_minutes(sched.get("start_time", "00:00"))
+                end_mins = _time_to_minutes(sched.get("end_time", "00:00"))
+
+                grid_start_mins = start_hour * 60
+                top_offset = ((start_mins - grid_start_mins) / 30) * slot_height
+                duration_mins = max(end_mins - start_mins, 0)
+                block_height = (duration_mins / 30) * slot_height
+
+                if top_offset < 0 or block_height <= 0:
+                    continue
+
+                start_display = sched.get("start_time", "")[:5]
+                end_display = sched.get("end_time", "")[:5]
+                name = sched.get("subject_name", "Class")
+                room_code = sched.get("room_code") or ""
+
+                # Short blocks get condensed content
+                if block_height < 52:
+                    content = ft.Column(
+                        [
+                            ft.Text(start_display, size=7, color="#ffffffcc"),
+                            ft.Text(
+                                name[:10] + "..." if len(name) > 10 else name,
+                                size=8,
+                                color="#ffffff",
+                                weight=ft.FontWeight.W_600,
+                                max_lines=1,
+                            ),
+                            ft.Text(end_display, size=7, color="#ffffffcc"),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=1,
+                    )
+                else:
+                    content = ft.Column(
+                        [
+                            ft.Container(
+                                content=ft.Text(
+                                    start_display,
+                                    size=8,
+                                    color="#ffffffcc",
+                                    weight=ft.FontWeight.W_600,
+                                ),
+                                bgcolor="#00000033",
+                                padding=ft.padding.symmetric(horizontal=4, vertical=1),
+                                border_radius=3,
+                            ),
+                            ft.Text(
+                                name[:14] + "..." if len(name) > 14 else name,
+                                size=9,
+                                color="#ffffff",
+                                weight=ft.FontWeight.W_700,
+                                text_align=ft.TextAlign.CENTER,
+                                max_lines=2,
+                                overflow=ft.TextOverflow.ELLIPSIS,
+                            ),
+                            ft.Text(room_code, size=7, color="#ffffffbb"),
+                            ft.Container(
+                                content=ft.Text(
+                                    end_display,
+                                    size=8,
+                                    color="#ffffffcc",
+                                    weight=ft.FontWeight.W_600,
+                                ),
+                                bgcolor="#00000033",
+                                padding=ft.padding.symmetric(horizontal=4, vertical=1),
+                                border_radius=3,
+                            ),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=2,
+                    )
+
+                is_personal = sched.get("is_personal", False)
+                bg_color = c["info"] if is_personal else c["accent"]
+
+                day_blocks.append(
+                    ft.Container(
+                        content=content,
+                        bgcolor=bg_color,
+                        border_radius=6,
+                        width=76,
+                        height=max(block_height - 2, 28),
+                        top=top_offset + 1,
+                        left=2,
+                        padding=ft.padding.symmetric(horizontal=4, vertical=4),
+                        shadow=ft.BoxShadow(
+                            spread_radius=0,
+                            blur_radius=4,
+                            color="#00000022",
+                            offset=ft.Offset(0, 2),
+                        ),
+                        tooltip=f"{name}\n{start_display} - {end_display}\n{sched.get('room_name', '')}",
+                    )
+                )
+
+            total_height = (end_hour - start_hour + 1) * slot_height * 2
+
+            day_columns.append(
+                ft.Column(
+                    [
+                        ft.Container(
+                            content=ft.Text(
+                                day[:3],
+                                size=11,
+                                weight=ft.FontWeight.W_600,
+                                color=c["text_primary"],
+                                text_align=ft.TextAlign.CENTER,
+                            ),
+                            width=80,
+                            height=28,
+                            alignment=ft.alignment.center,
+                            bgcolor=c["bg_card"],
+                            border_radius=ft.border_radius.only(top_left=8, top_right=8),
+                        ),
+                        ft.Container(
+                            content=ft.Stack(day_blocks),
+                            width=80,
+                            height=total_height,
+                        ),
+                    ],
+                    spacing=0,
+                )
+            )
+
+        legend = ft.Container(
+            content=ft.Row(
+                [
+                    ft.Container(width=12, height=12, bgcolor=c["accent"], border_radius=3),
+                    ft.Text("Enrolled class", size=10, color=c["text_secondary"]),
+                    ft.Container(width=12),
+                    ft.Container(
+                        width=12,
+                        height=12,
+                        bgcolor=c["info"],
+                        border_radius=3,
+                    ),
+                    ft.Text("My personal class", size=10, color=c["text_secondary"]),
+                ],
+                spacing=6,
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            padding=ft.padding.symmetric(vertical=8),
+        )
+
+        timetable = ft.Row(
+            [
+                ft.Column(
+                    [
+                        ft.Container(height=28),
+                        time_column,
+                    ],
+                    spacing=0,
+                ),
+                *day_columns,
+            ],
+            spacing=2,
+            scroll=ft.ScrollMode.AUTO,
+        )
+
+        header = ft.Row(
+            [
+                ft.Text(
+                    "Weekly Class Plotting",
+                    size=14,
+                    weight=ft.FontWeight.W_600,
+                    color=c["text_primary"],
+                ),
+                ft.Text(
+                    "(Student view)",
+                    size=11,
+                    color=c["text_secondary"],
+                ),
+            ],
+            spacing=8,
+        )
+
+        if not schedules:
+            return ft.Container(
+                content=ft.Column(
+                    [
+                        header,
+                        ft.Container(height=8),
+                        ft.Icon(ft.Icons.CALENDAR_TODAY, size=40, color=c["text_hint"]),
+                        ft.Text(
+                            "No classes found for your schedule yet.",
+                            size=12,
+                            color=c["text_secondary"],
+                        ),
+                        ft.Text(
+                            "Enroll in classes and use the Schedule tab to add personal blocks.",
+                            size=11,
+                            color=c["text_hint"],
+                            text_align=ft.TextAlign.CENTER,
+                        ),
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=6,
+                ),
+                alignment=ft.alignment.center,
+                padding=24,
+            )
+
+        return ft.Column(
+            [
+                header,
+                legend,
+                ft.Container(
+                    content=timetable,
+                    expand=True,
+                ),
+            ],
+            expand=True,
+            spacing=4,
+            scroll=ft.ScrollMode.AUTO,
+        )
+
+    def build_schedule_view():
+        """Route schedule rendering based on role."""
+        if is_student:
+            return _build_student_timetable_view()
+        return _build_room_schedule_view()
+
     # ==================== STATS ====================
     
     available_count = len([r for r in all_classrooms if r["status"] == "available"])

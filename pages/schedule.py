@@ -3,6 +3,7 @@ Smart Classroom - Class Schedule Page
 Semester Class Timetable showing day, time, and room assignments
 With QR Code attendance functionality (FR-002, FR-003)
 """
+import json
 import flet as ft
 from database import db
 from datetime import datetime, timedelta
@@ -67,6 +68,30 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     current_semester = {"value": semester_current}
     active_qr_session = {"data": None}
     qr_timer = {"remaining": 0, "running": False}
+
+    # ==================== PERSONAL STUDENT SCHEDULE ====================
+    def load_personal_schedule():
+        """Load student's personal schedule from settings (stored as JSON)."""
+        if not is_student or not user_id:
+            return []
+        try:
+            raw = db.get_setting(user_id, "personal_schedule", "[]")
+            if not raw:
+                return []
+            return json.loads(raw)
+        except Exception:
+            return []
+
+    personal_schedule = {"items": load_personal_schedule()}
+
+    def save_personal_schedule():
+        """Persist student's personal schedule to settings."""
+        if not is_student or not user_id:
+            return
+        try:
+            db.set_setting(user_id, "personal_schedule", json.dumps(personal_schedule["items"]))
+        except Exception:
+            pass
     
     # Refs
     content_container = ft.Ref[ft.Container]()
@@ -114,7 +139,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         # Classes the student is enrolled in
         enrolled_classes = db.get_enrolled_classes(user_id)
         if not enrolled_classes:
-            return []
+            enrolled_classes = []
 
         # Match by (subject name, instructor) between classes and room schedules
         enrolled_keys = {(cls['name'], cls['instructor_id']) for cls in enrolled_classes}
@@ -126,6 +151,28 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             for sched in all_schedules
             if (sched.get('subject_name'), sched.get('instructor_id')) in enrolled_keys
         ]
+
+        # Append personal schedule items as virtual schedule entries
+        for idx, item in enumerate(personal_schedule["items"]):
+            day = item.get("day")
+            if not day:
+                continue
+            student_schedules.append(
+                {
+                    "id": f"personal-{idx}",
+                    "day": day,
+                    "subject_name": item.get("title") or item.get("subject_name") or "Personal Class",
+                    "start_time": item.get("start_time", "08:00"),
+                    "end_time": item.get("end_time", "09:00"),
+                    "room_name": item.get("location") or item.get("room_name") or "Personal",
+                    "room_code": item.get("room_code", ""),
+                    "room_floor": item.get("room_floor", ""),
+                    "instructor_name": "My schedule",
+                    "notes": item.get("notes", ""),
+                    "is_personal": True,
+                    "personal_index": idx,
+                }
+            )
 
         return student_schedules
     
@@ -872,6 +919,237 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         dialog.open = True
         page.update()
     
+    def open_personal_schedule_form(existing: dict | None = None, index: int | None = None):
+        """Dialog to create or edit a personal schedule entry (student only)."""
+        if not is_student:
+            return
+
+        c = t()
+        title_ref = ft.Ref[ft.TextField]()
+        day_ref = ft.Ref[ft.Dropdown]()
+        start_ref = ft.Ref[ft.TextField]()
+        end_ref = ft.Ref[ft.TextField]()
+        location_ref = ft.Ref[ft.TextField]()
+        notes_ref = ft.Ref[ft.TextField]()
+
+        is_edit = existing is not None and index is not None
+
+        # Prefill values when editing
+        initial = existing or {}
+        initial_day = initial.get("day", "Monday")
+
+        def close_dialog(e):
+            dialog.open = False
+            page.update()
+
+        def save_entry(e):
+            title = (title_ref.current.value or "").strip()
+            day = day_ref.current.value
+            start_time = (start_ref.current.value or "").strip()
+            end_time = (end_ref.current.value or "").strip()
+            location = (location_ref.current.value or "").strip()
+            notes_val = (notes_ref.current.value or "").strip()
+
+            if not title or not day or not start_time or not end_time:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row(
+                        [
+                            ft.Icon(ft.Icons.WARNING, color="#ffffff", size=18),
+                            ft.Text("Please complete title, day, start, and end time.", color="#ffffff"),
+                        ],
+                        spacing=8,
+                    ),
+                    bgcolor=c["warning"],
+                )
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            entry = {
+                "title": title,
+                "day": day,
+                "start_time": start_time,
+                "end_time": end_time,
+                "location": location,
+                "notes": notes_val,
+            }
+
+            if is_edit and index is not None and 0 <= index < len(personal_schedule["items"]):
+                personal_schedule["items"][index] = entry
+                msg = "Personal class updated."
+            else:
+                personal_schedule["items"].append(entry)
+                msg = "Personal class added."
+
+            save_personal_schedule()
+            dialog.open = False
+            page.snack_bar = ft.SnackBar(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
+                        ft.Text(msg, color="#ffffff"),
+                    ],
+                    spacing=8,
+                ),
+                bgcolor=c["success"],
+            )
+            page.snack_bar.open = True
+            update_content()
+
+        def delete_entry(e):
+            if is_edit and index is not None and 0 <= index < len(personal_schedule["items"]):
+                personal_schedule["items"].pop(index)
+                save_personal_schedule()
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row(
+                        [
+                            ft.Icon(ft.Icons.DELETE, color="#ffffff", size=18),
+                            ft.Text("Personal class removed.", color="#ffffff"),
+                        ],
+                        spacing=8,
+                    ),
+                    bgcolor=c["error"],
+                )
+                page.snack_bar.open = True
+            dialog.open = False
+            update_content()
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Row(
+                [
+                    ft.Icon(
+                        ft.Icons.EDIT_CALENDAR,
+                        color=c["accent"],
+                        size=24,
+                    ),
+                    ft.Text(
+                        "My Personal Class" if not is_edit else "Edit Personal Class",
+                        size=16,
+                        weight=ft.FontWeight.W_600,
+                        color=c["text_primary"],
+                    ),
+                ],
+                spacing=8,
+            ),
+            content=ft.Container(
+                width=320,
+                content=ft.Column(
+                    [
+                        ft.Text(
+                            "These entries are only visible to you and will appear on your timetable.",
+                            size=11,
+                            color=c["text_secondary"],
+                        ),
+                        ft.Container(height=12),
+                        ft.Text("Title / Subject", size=12, color=c["text_secondary"]),
+                        ft.TextField(
+                            ref=title_ref,
+                            value=initial.get("title") or initial.get("subject_name") or "",
+                            hint_text="e.g., Review Session",
+                            border_radius=10,
+                            border_color=c["border"],
+                            focused_border_color=c["accent"],
+                            text_style=ft.TextStyle(color=c["text_primary"]),
+                            cursor_color=c["accent"],
+                        ),
+                        ft.Container(height=8),
+                        ft.Text("Day of Week", size=12, color=c["text_secondary"]),
+                        ft.Dropdown(
+                            ref=day_ref,
+                            value=initial_day,
+                            options=[ft.dropdown.Option(d) for d in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]],
+                            border_radius=10,
+                            border_color=c["border"],
+                            focused_border_color=c["accent"],
+                            text_style=ft.TextStyle(color=c["text_primary"], size=12),
+                        ),
+                        ft.Container(height=8),
+                        ft.Text("Time", size=12, color=c["text_secondary"]),
+                        ft.Row(
+                            [
+                                ft.TextField(
+                                    ref=start_ref,
+                                    value=initial.get("start_time", ""),
+                                    hint_text="Start (HH:MM)",
+                                    width=120,
+                                    border_radius=10,
+                                    border_color=c["border"],
+                                    focused_border_color=c["accent"],
+                                    text_style=ft.TextStyle(color=c["text_primary"]),
+                                    cursor_color=c["accent"],
+                                ),
+                                ft.Text("-", size=14, color=c["text_secondary"]),
+                                ft.TextField(
+                                    ref=end_ref,
+                                    value=initial.get("end_time", ""),
+                                    hint_text="End (HH:MM)",
+                                    width=120,
+                                    border_radius=10,
+                                    border_color=c["border"],
+                                    focused_border_color=c["accent"],
+                                    text_style=ft.TextStyle(color=c["text_primary"]),
+                                    cursor_color=c["accent"],
+                                ),
+                            ],
+                            spacing=8,
+                        ),
+                        ft.Container(height=8),
+                        ft.Text("Location (optional)", size=12, color=c["text_secondary"]),
+                        ft.TextField(
+                            ref=location_ref,
+                            value=initial.get("location") or initial.get("room_name", ""),
+                            hint_text="e.g., Library, Home, Online",
+                            border_radius=10,
+                            border_color=c["border"],
+                            focused_border_color=c["accent"],
+                            text_style=ft.TextStyle(color=c["text_primary"]),
+                            cursor_color=c["accent"],
+                        ),
+                        ft.Container(height=8),
+                        ft.Text("Notes (optional)", size=12, color=c["text_secondary"]),
+                        ft.TextField(
+                            ref=notes_ref,
+                            value=initial.get("notes", ""),
+                            hint_text="Any reminders or details...",
+                            border_radius=10,
+                            border_color=c["border"],
+                            focused_border_color=c["accent"],
+                            text_style=ft.TextStyle(color=c["text_primary"]),
+                            cursor_color=c["accent"],
+                            multiline=True,
+                            min_lines=2,
+                            max_lines=3,
+                        ),
+                    ],
+                    spacing=6,
+                ),
+            ),
+            actions=[
+                ft.TextButton("Cancel", on_click=close_dialog, style=ft.ButtonStyle(color=c["text_secondary"])),
+                ft.TextButton(
+                    "Delete",
+                    on_click=delete_entry,
+                    visible=is_edit,
+                    style=ft.ButtonStyle(color=c["error"]),
+                ),
+                ft.ElevatedButton(
+                    "Save",
+                    bgcolor=c["accent"],
+                    color="#ffffff",
+                    on_click=save_entry,
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+            bgcolor=c["bg_card"],
+            shape=ft.RoundedRectangleBorder(radius=16),
+        )
+
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+
     def build_class_block(schedule, compact=False):
         """Build a class block for the timetable"""
         c = t()
@@ -900,7 +1178,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                 alignment=ft.alignment.center,
             )
         
-        # Build content with optional QR and delete buttons for instructors
+        # Build content with optional QR/delete buttons for instructors
         action_buttons = []
         if is_own_schedule:
             action_buttons.append(
@@ -919,6 +1197,33 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                     icon_size=18,
                     tooltip="Delete this schedule",
                     on_click=lambda e, s=schedule: show_delete_schedule_dialog(s),
+                )
+            )
+        # Personal schedule edit/delete for students
+        if is_student and schedule.get("is_personal"):
+            personal_index = schedule.get("personal_index")
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.EDIT,
+                    icon_color=c["accent"],
+                    icon_size=18,
+                    tooltip="Edit personal class",
+                    on_click=lambda e, idx=personal_index: open_personal_schedule_form(
+                        personal_schedule["items"][idx] if 0 <= idx < len(personal_schedule["items"]) else {},
+                        idx,
+                    ),
+                )
+            )
+            action_buttons.append(
+                ft.IconButton(
+                    icon=ft.Icons.DELETE_OUTLINE,
+                    icon_color=c["error"],
+                    icon_size=18,
+                    tooltip="Remove personal class",
+                    on_click=lambda e, idx=personal_index: open_personal_schedule_form(
+                        personal_schedule["items"][idx] if 0 <= idx < len(personal_schedule["items"]) else {},
+                        idx,
+                    ),
                 )
             )
         
@@ -1098,10 +1403,19 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                         ft.Text(f"{end_time_display}", size=7, color="#ffffffcc"),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=1)
                 
+                # Personal entries are clickable for editing
+                on_click_handler = None
+                if is_student and sched.get("is_personal"):
+                    p_index = sched.get("personal_index")
+                    on_click_handler = lambda e, idx=p_index: open_personal_schedule_form(
+                        personal_schedule["items"][idx] if 0 <= idx < len(personal_schedule["items"]) else {},
+                        idx,
+                    )
+
                 day_blocks.append(
                     ft.Container(
                         content=class_content,
-                        bgcolor=c["accent"],
+                        bgcolor=c["accent"] if not sched.get("is_personal") else c["info"],
                         border_radius=6,
                         width=66,
                         height=max(block_height - 2, 30),
@@ -1113,6 +1427,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                             color="#00000022", offset=ft.Offset(0, 2),
                         ),
                         tooltip=f"{sched['subject_name']}\n{sched['start_time']} - {sched['end_time']}\n{sched.get('room_name', '')}\n{sched.get('instructor_name', '')}",
+                        on_click=on_click_handler,
                     )
                 )
             
@@ -1144,6 +1459,9 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                 ft.Container(width=12, height=12, bgcolor=c["accent"], border_radius=3),
                 ft.Text("Scheduled Class", size=10, color=c["text_secondary"]),
                 ft.Container(width=12),
+                ft.Container(width=12, height=12, bgcolor=c["info"], border_radius=3, visible=is_student),
+                ft.Text("My Personal Class", size=10, color=c["text_secondary"], visible=is_student),
+                ft.Container(width=12, visible=is_student),
                 ft.Icon(ft.Icons.ACCESS_TIME, size=12, color=c["text_hint"]),
                 ft.Text("Time shown at start & end", size=10, color=c["text_hint"]),
             ], spacing=6, alignment=ft.MainAxisAlignment.CENTER),
@@ -1325,6 +1643,49 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             ),
             
             ft.Container(height=16),
+
+            # Personal schedule helper for students
+            ft.Container(
+                content=ft.Row(
+                    [
+                        ft.Icon(ft.Icons.PERSON, size=16, color=c["accent"]),
+                        ft.Column(
+                            [
+                                ft.Text(
+                                    "My Personal Schedule",
+                                    size=12,
+                                    weight=ft.FontWeight.W_600,
+                                    color=c["text_primary"],
+                                ),
+                                ft.Text(
+                                    "Add your own study blocks or non-official classes. Only you can see these.",
+                                    size=10,
+                                    color=c["text_secondary"],
+                                ),
+                            ],
+                            spacing=0,
+                            expand=True,
+                        ),
+                        ft.TextButton(
+                            content=ft.Row(
+                                [
+                                    ft.Icon(ft.Icons.ADD, size=16),
+                                    ft.Text("Add personal class", size=11),
+                                ],
+                                spacing=4,
+                            ),
+                            on_click=lambda e: open_personal_schedule_form(),
+                        ),
+                    ],
+                    spacing=8,
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                bgcolor=c["bg_card"],
+                padding=12,
+                border_radius=8,
+                border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                visible=is_student,
+            ),
             
             # Info card for instructors
             ft.Container(

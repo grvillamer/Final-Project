@@ -112,7 +112,7 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
                         bgcolor="#1a3d2e", padding=12, border_radius=8, margin=ft.margin.only(top=8),
                     ),
                 ], spacing=8, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                width=min(page.width * 0.9 if page.width else 320, 320),
+                width=min(page.width * 0.9 if page.width else 360, 420),
             ),
             actions=[
                 ft.ElevatedButton("Cancel", bgcolor="#2d3a4d", color="#ffffff",
