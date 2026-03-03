@@ -5,10 +5,11 @@ With QR Code attendance functionality (FR-002, FR-003)
 """
 import json
 import flet as ft
-from database import db
 from datetime import datetime, timedelta
+from database import db
 from utils.helpers import get_initials, generate_qr_code
 from utils.theme import get_theme
+from config import config
 
 
 def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
@@ -198,6 +199,78 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     
     # ==================== QR CODE FUNCTIONS (FR-002, FR-003) ====================
     
+    def _send_qr_email_to_students(class_id: int, qr_code: str, schedule: dict) -> bool:
+        """
+        Send the QR / attendance code to all enrolled students via email.
+        Returns True if at least one email was successfully queued/sent.
+        """
+        if not config.SMTP_ENABLED or not config.SMTP_HOST or not config.SMTP_FROM_EMAIL:
+            return False
+        
+        students = db.get_class_students(class_id)
+        recipients = [s.get("email") for s in students if s.get("email")]
+        if not recipients:
+            return False
+        
+        subject = f"Attendance code for {schedule.get('subject_name', 'your class')}"
+        start_time = schedule.get("start_time", "")
+        end_time = schedule.get("end_time", "")
+        room_name = schedule.get("room_name", "the classroom")
+        expires_mins = 10
+        
+        body_lines = [
+            "Good day!",
+            "",
+            f"Your instructor has started an attendance session for {schedule.get('subject_name', 'your class')}.",
+            f"Room: {room_name}",
+            f"Time: {start_time} - {end_time}" if start_time and end_time else "",
+            "",
+            f"Attendance code / QR value:",
+            f"    {qr_code}",
+            "",
+            f"This code will be active for about {expires_mins} minutes.",
+            "You can join by either:",
+            " - Scanning the QR code in the app, or",
+            " - Typing this code into the attendance screen.",
+            "",
+            f"Sent automatically from {config.APP_NAME}. Please do not reply to this email.",
+        ]
+        body = "\n".join([line for line in body_lines if line is not None])
+        
+        try:
+            from email.message import EmailMessage
+            import smtplib
+            
+            msg = EmailMessage()
+            msg["Subject"] = subject
+            msg["From"] = f"{config.SMTP_FROM_NAME} <{config.SMTP_FROM_EMAIL}>"
+            # For privacy, send as BCC; To is the instructor or a generic address
+            instructor_email = None
+            for s in students:
+                if s.get("id") == schedule.get("instructor_id") and s.get("email"):
+                    instructor_email = s["email"]
+                    break
+            msg["To"] = instructor_email or config.SMTP_FROM_EMAIL
+            msg["Bcc"] = ", ".join(recipients)
+            msg.set_content(body)
+            
+            if config.SMTP_USE_TLS:
+                with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT) as server:
+                    server.starttls()
+                    if config.SMTP_USERNAME:
+                        server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT) as server:
+                    if config.SMTP_USERNAME:
+                        server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+                    server.send_message(msg)
+            
+            return True
+        except Exception as exc:
+            print(f"[SCHEDULE] Failed to send QR code email: {exc}")
+            return False
+
     def generate_attendance_qr(schedule):
         """Generate QR code for attendance session (FR-002: Professor)"""
         c = t()
@@ -224,16 +297,20 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             class_id = matching_class['id']
         
         if class_id:
-            session_id = db.create_attendance_session(class_id, today, qr_code, expires_minutes=5)
+            session_id = db.create_attendance_session(class_id, today, qr_code, expires_minutes=10)
             if session_id:
                 active_qr_session["data"] = {
                     "qr_code": qr_code,
                     "schedule": schedule,
                     "session_id": session_id,
-                    "expires_at": datetime.now() + timedelta(minutes=5)
+                    "expires_at": datetime.now() + timedelta(minutes=10)
                 }
-                qr_timer["remaining"] = 300  # 5 minutes in seconds
+                qr_timer["remaining"] = 600  # 10 minutes in seconds
                 qr_timer["running"] = True
+                
+                # Try to email the code to enrolled students (best-effort)
+                _send_qr_email_to_students(class_id, qr_code, schedule)
+                
                 show_qr_code_dialog(schedule, qr_code)
     
     def show_qr_code_dialog(schedule, qr_code):
@@ -344,7 +421,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                         content=ft.Row([
                             ft.Icon(ft.Icons.TIMER, size=20, color=c["warning"]),
                             ft.Text("Expires in: ", size=13, color=c["text_secondary"]),
-                            ft.Text("05:00", ref=timer_text, size=16, 
+                            ft.Text("10:00", ref=timer_text, size=16, 
                                    weight=ft.FontWeight.W_700, color=c["warning"]),
                         ], alignment=ft.MainAxisAlignment.CENTER),
                         bgcolor=c["bg_secondary"], padding=10, border_radius=8,
@@ -381,14 +458,16 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         timer_thread = threading.Thread(target=timer_loop, daemon=True)
         timer_thread.start()
     
-    def submit_attendance_code(e=None):
+    def submit_attendance_code(e=None, code_value: str | None = None):
         """Submit attendance code (FR-003: Student)"""
         c = t()
         
-        if not attendance_code_field.current:
-            return
-        
-        code = attendance_code_field.current.value.strip()
+        if code_value is not None:
+            code = code_value.strip()
+        else:
+            if not attendance_code_field.current:
+                return
+            code = attendance_code_field.current.value.strip()
         if not code:
             page.snack_bar = ft.SnackBar(
                 content=ft.Row([
@@ -433,7 +512,8 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                 ], spacing=8),
                 bgcolor=c["success"],
             )
-            attendance_code_field.current.value = ""
+            if attendance_code_field.current:
+                attendance_code_field.current.value = ""
         else:
             page.snack_bar = ft.SnackBar(
                 content=ft.Row([
@@ -490,7 +570,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                     content=ft.Row([
                         ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=c["info"]),
                         ft.Column([
-                            ft.Text("QR codes expire after 5 minutes (FR-002)", 
+                            ft.Text("QR codes expire after 10 minutes (FR-002)", 
                                    size=11, color=c["text_secondary"]),
                             ft.Text("Students can scan or enter the code manually", 
                                    size=11, color=c["text_hint"]),
@@ -552,6 +632,108 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             # Get recent attendance history
             history = db.get_student_attendance_history(user_id)[:5]
 
+            def show_camera_scanner_dialog(e=None):
+                """Show a responsive camera preview for scanning QR codes."""
+                c = t()
+
+                # Try to use async Camera control when available
+                camera_control = None
+                info_text = None
+                try:
+                    import flet.async_controls as fc  # type: ignore
+
+                    camera_control = fc.Camera(
+                        expand=True,
+                        preview_enabled=True,
+                        content=ft.Container(
+                            alignment=ft.alignment.center,
+                            content=ft.Icon(
+                                ft.Icons.CENTER_FOCUS_STRONG,
+                                color=ft.Colors.WHITE70,
+                                size=48,
+                            ),
+                        ),
+                    )
+                    info_text = ft.Text(
+                        "Point your camera at the QR code. "
+                        "After the instructor shares the code, type it below.",
+                        size=11,
+                        color=c["text_secondary"],
+                        text_align=ft.TextAlign.CENTER,
+                    )
+                except Exception:
+                    camera_control = ft.Container(
+                        alignment=ft.alignment.center,
+                        content=ft.Icon(
+                            ft.Icons.VIDEOCAM_OFF,
+                            size=40,
+                            color=c["text_hint"],
+                        ),
+                    )
+                    info_text = ft.Text(
+                        "Camera preview is not available on this device. "
+                        "You can still join by typing the attendance code manually.",
+                        size=11,
+                        color=c["text_secondary"],
+                        text_align=ft.TextAlign.CENTER,
+                    )
+
+                def close_dialog(ev):
+                    dialog.open = False
+                    page.update()
+
+                dialog = ft.AlertDialog(
+                    modal=True,
+                    title=ft.Row(
+                        [
+                            ft.Icon(
+                                ft.Icons.QR_CODE_SCANNER,
+                                color=c["accent"],
+                                size=22,
+                            ),
+                            ft.Text(
+                                "Camera Scanner",
+                                size=16,
+                                weight=ft.FontWeight.W_600,
+                                color=c["text_primary"],
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                    content=ft.Container(
+                        width=min(page.width or 360, 360),
+                        height=280,
+                        content=ft.Column(
+                            [
+                                ft.Container(
+                                    content=camera_control,
+                                    expand=True,
+                                    bgcolor=c["bg_secondary"],
+                                    border_radius=12,
+                                ),
+                                ft.Container(height=8),
+                                info_text,
+                            ],
+                            spacing=8,
+                            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                        ),
+                    ),
+                    actions=[
+                        ft.TextButton(
+                            "Close",
+                            on_click=close_dialog,
+                            style=ft.ButtonStyle(color=c["text_secondary"]),
+                        ),
+                    ],
+                    actions_alignment=ft.MainAxisAlignment.END,
+                    bgcolor=c["bg_card"],
+                    shape=ft.RoundedRectangleBorder(radius=14),
+                )
+
+                page.overlay.append(dialog)
+                dialog.open = True
+                page.update()
+
             # Simple breakpoint based on window width
             page_width = page.width or 400
             is_compact = page_width < 600
@@ -609,7 +791,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                                     color=c["text_primary"],
                                 ),
                                 ft.Text(
-                                    "Point your camera at the QR code",
+                                    "Tap to open camera preview",
                                     size=11,
                                     color=c["text_hint"],
                                     text_align=ft.TextAlign.CENTER,
@@ -636,6 +818,8 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                         border_radius=12,
                         border=ft.border.all(2, c["border"]),
                         width=content_width,
+                        on_click=show_camera_scanner_dialog,
+                        ink=True,
                     ),
 
                     # Or divider
