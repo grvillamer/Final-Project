@@ -330,6 +330,9 @@ def main(page: ft.Page):
         elif route == 'scan':
             current_nav_index["index"] = 2
             navigate_to('attendance')
+        elif route == 'profile':
+            # Open profile from home header avatar
+            push_navigation('profile')
     
     def handle_classes_navigate(route: str, data=None):
         """Handle navigation from classes page"""

@@ -159,13 +159,19 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                     ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
                     ft.Text("Profile picture updated!", color="#ffffff"),
                 ], spacing=8),
-                bgcolor=c["success"],
+                bgcolor=t()["success"],
             )
             page.snack_bar.open = True
             
-            # Refresh the page to show new picture
-            if on_navigate:
-                on_navigate('settings')
+            # Update avatar container in-place if available
+            if profile_picture_display.current:
+                profile_picture_display.current.content = ft.Image(
+                    src=file.path,
+                    width=profile_picture_display.current.width,
+                    height=profile_picture_display.current.height,
+                    fit=ft.ImageFit.COVER,
+                )
+            page.update()
     
     file_picker = ft.FilePicker(on_result=on_file_picked)
     page.overlay.append(file_picker)
@@ -191,14 +197,119 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
         
         def take_photo(e):
             dialog.open = False
-            page.snack_bar = ft.SnackBar(
-                content=ft.Row([
-                    ft.Icon(ft.Icons.INFO, color="#ffffff", size=18),
-                    ft.Text("Camera not available on this platform", color="#ffffff"),
-                ], spacing=8),
-                bgcolor=c["warning"],
+            page.update()
+            
+            # Try to use Flet async Camera control (best-effort)
+            try:
+                import flet.async_controls as fc  # type: ignore
+            except Exception:
+                page.snack_bar = ft.SnackBar(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.INFO, color="#ffffff", size=18),
+                        ft.Text("Camera not available on this platform", color="#ffffff"),
+                    ], spacing=8),
+                    bgcolor=t()["warning"],
+                )
+                page.snack_bar.open = True
+                page.update()
+                return
+            
+            rv = get_responsive_values()
+            photo_width = rv["profile_size"] * 2
+            photo_height = rv["profile_size"] * 2
+            
+            preview = fc.Camera(
+                expand=True,
+                preview_enabled=True,
+                content=ft.Container(
+                    alignment=ft.alignment.center,
+                    content=ft.Icon(
+                        ft.Icons.CENTER_FOCUS_STRONG,
+                        color=ft.Colors.WHITE70,
+                        size=48,
+                    ),
+                ),
             )
-            page.snack_bar.open = True
+            
+            status = ft.Text("Align your face and tap Capture", size=11, color=t()["text_secondary"])
+            
+            async def init_camera():
+                try:
+                    await preview.initialize()
+                except Exception as ex:
+                    print(f"[SETTINGS] Camera init failed: {ex}")
+            
+            async def capture_photo(ev):
+                try:
+                    data = await preview.take_picture()
+                    # Save picture to a temporary in-memory bytes URL
+                    image = ft.Image(
+                        src=data,
+                        width=photo_width,
+                        height=photo_height,
+                        fit=ft.ImageFit.COVER,
+                    )
+                    
+                    profile_picture_path["value"] = ""  # No filesystem path, but we can still display this session
+                    save_setting('profile_picture', '')  # Clear stored path for now
+                    
+                    if profile_picture_display.current:
+                        profile_picture_display.current.content = image
+                    status.value = "Photo captured!"
+                    page.update()
+                except Exception as ex:
+                    print(f"[SETTINGS] Failed to take picture: {ex}")
+                    status.value = "Failed to take photo."
+                    page.update()
+            
+            def close_camera(ev):
+                cam_dialog.open = False
+                page.update()
+            
+            cam_dialog = ft.AlertDialog(
+                modal=True,
+                title=ft.Text(
+                    "Take a Photo",
+                    size=rv["font_title"],
+                    weight=ft.FontWeight.W_600,
+                    color=t()["text_primary"],
+                ),
+                content=ft.Container(
+                    width=rv["dialog_width"],
+                    height=photo_height + 80,
+                    content=ft.Column(
+                        [
+                            ft.Container(
+                                content=preview,
+                                bgcolor=t()["bg_secondary"],
+                                border_radius=12,
+                                width=photo_width,
+                                height=photo_height,
+                                alignment=ft.alignment.center,
+                            ),
+                            status,
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=8,
+                    ),
+                ),
+                actions=[
+                    ft.TextButton("Cancel", on_click=close_camera, style=ft.ButtonStyle(color=t()["text_secondary"])),
+                    ft.ElevatedButton(
+                        "Capture",
+                        bgcolor=t()["accent"],
+                        color="#ffffff",
+                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+                        on_click=capture_photo,
+                    ),
+                ],
+                actions_alignment=ft.MainAxisAlignment.END,
+                bgcolor=t()["bg_card"],
+                shape=ft.RoundedRectangleBorder(radius=16),
+            )
+            
+            page.overlay.append(cam_dialog)
+            cam_dialog.open = True
             page.update()
         
         def remove_photo(e):
@@ -211,13 +322,19 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                     ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
                     ft.Text("Profile picture removed", color="#ffffff"),
                 ], spacing=8),
-                bgcolor=c["accent"],
+                bgcolor=t()["accent"],
             )
             page.snack_bar.open = True
-            
-            # Refresh page
-            if on_navigate:
-                on_navigate('settings')
+            # Update avatar in-place
+            if profile_picture_display.current:
+                profile_picture_display.current.content = ft.Text(
+                    initials,
+                    size=get_responsive_values()["profile_size"] * 0.35,
+                    weight=ft.FontWeight.W_600,
+                    color="#000000",
+                )
+                profile_picture_display.current.bgcolor = "#FFC107"
+            page.update()
         
         dialog = ft.AlertDialog(
             modal=True,
@@ -1065,18 +1182,49 @@ For questions about these terms, contact us at legal@smartclassroom.edu"""
                             # Profile picture
                             ft.Container(
                                 content=ft.Column([
-                                    ft.Stack([
-                                        ft.Container(
-                                            content=ft.Text(initials, size=responsive["profile_size"] * 0.35, weight=ft.FontWeight.W_600, color="#000000"),
-                                            width=responsive["profile_size"], height=responsive["profile_size"], bgcolor="#FFC107", border_radius=responsive["profile_size"] / 2,
-                                            alignment=ft.alignment.center,
-                                        ),
-                                        ft.Container(
-                                            content=ft.Icon(ft.Icons.CAMERA_ALT, size=max(12, responsive["icon_size"] - 6), color="#ffffff"),
-                                            width=max(22, responsive["icon_size"] + 4), height=max(22, responsive["icon_size"] + 4), bgcolor="#2196F3", border_radius=max(11, (responsive["icon_size"] + 4) / 2),
-                                            alignment=ft.alignment.center, right=0, bottom=0,
-                                        ),
-                                    ], width=responsive["profile_size"], height=responsive["profile_size"]),
+                                    ft.Stack(
+                                        [
+                                            ft.Container(
+                                                ref=profile_picture_display,
+                                                content=(
+                                                    ft.Image(
+                                                        src=profile_picture_path["value"],
+                                                        width=responsive["profile_size"],
+                                                        height=responsive["profile_size"],
+                                                        fit=ft.ImageFit.COVER,
+                                                    )
+                                                    if profile_picture_path["value"]
+                                                    else ft.Text(
+                                                        initials,
+                                                        size=responsive["profile_size"] * 0.35,
+                                                        weight=ft.FontWeight.W_600,
+                                                        color="#000000",
+                                                    )
+                                                ),
+                                                width=responsive["profile_size"],
+                                                height=responsive["profile_size"],
+                                                bgcolor="#FFC107" if not profile_picture_path["value"] else None,
+                                                border_radius=responsive["profile_size"] / 2,
+                                                alignment=ft.alignment.center,
+                                            ),
+                                            ft.Container(
+                                                content=ft.Icon(
+                                                    ft.Icons.CAMERA_ALT,
+                                                    size=max(12, responsive["icon_size"] - 6),
+                                                    color="#ffffff",
+                                                ),
+                                                width=max(22, responsive["icon_size"] + 4),
+                                                height=max(22, responsive["icon_size"] + 4),
+                                                bgcolor="#2196F3",
+                                                border_radius=max(11, (responsive["icon_size"] + 4) / 2),
+                                                alignment=ft.alignment.center,
+                                                right=0,
+                                                bottom=0,
+                                            ),
+                                        ],
+                                        width=responsive["profile_size"],
+                                        height=responsive["profile_size"],
+                                    ),
                                     ft.Text("Tap to change profile picture", size=info_label_size, color=theme["text_hint"]),
                                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
                                 padding=ft.padding.symmetric(vertical=responsive["button_padding"]),

@@ -1487,24 +1487,42 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         content=ft.Column([
             # Header
             ft.Container(
-                content=ft.Row([
-                    ft.Row([
-                        ft.Container(
-                            content=ft.Text("CS", size=14, weight=ft.FontWeight.W_700, color="#ffffff"),
-                            width=36, height=36, bgcolor=c["accent"], border_radius=8,
-                            alignment=ft.alignment.center,
+                content=ft.Row(
+                    [
+                        ft.Row(
+                            [
+                                ft.Container(
+                                    content=ft.Text("CS", size=14, weight=ft.FontWeight.W_700, color="#ffffff"),
+                                    width=36,
+                                    height=36,
+                                    bgcolor=c["accent"],
+                                    border_radius=8,
+                                    alignment=ft.alignment.center,
+                                ),
+                                ft.Column(
+                                    [
+                                        ft.Text("CSPC", size=12, weight=ft.FontWeight.W_700, color=c["accent"]),
+                                        ft.Text("Room Locator", size=9, color=c["text_secondary"]),
+                                    ],
+                                    spacing=0,
+                                ),
+                            ],
+                            spacing=8,
                         ),
-                        ft.Column([
-                            ft.Text("CSPC", size=12, weight=ft.FontWeight.W_700, color=c["accent"]),
-                            ft.Text("Room Locator", size=9, color=c["text_secondary"]),
-                        ], spacing=0),
-                    ], spacing=8),
-                    ft.Container(
-                        content=ft.Text(initials, size=12, weight=ft.FontWeight.W_600, color="#ffffff"),
-                        width=32, height=32, bgcolor=c["accent"], border_radius=16,
-                        alignment=ft.alignment.center,
-                    ),
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                        ft.Container(
+                            content=ft.Text(initials, size=12, weight=ft.FontWeight.W_600, color="#ffffff"),
+                            width=32,
+                            height=32,
+                            bgcolor=c["accent"],
+                            border_radius=16,
+                            alignment=ft.alignment.center,
+                            on_click=lambda e: on_navigate("profile") if on_navigate else None,
+                            tooltip="View profile",
+                            ink=True,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
             ),
             
             # Welcome
