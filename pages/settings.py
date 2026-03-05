@@ -354,8 +354,8 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                     ft.Divider(color=c["border"], height=1),
                     ft.Container(
                         content=ft.Row([
-                            ft.Icon(ft.Icons.CAMERA_ALT, size=20, color=c["text_secondary"]),
-                            ft.Text("Take a Photo", size=rv["font_body"], color=c["text_secondary"]),
+                            ft.Icon(ft.Icons.CAMERA_ALT, size=20, color=c["accent"]),
+                            ft.Text("Take a Photo", size=rv["font_body"], color=c["text_primary"]),
                         ], spacing=12),
                         padding=ft.padding.symmetric(vertical=12),
                         on_click=take_photo,
@@ -1699,6 +1699,10 @@ def ProfilePage(page: ft.Page, user: dict, on_back=None):
     from utils.theme import get_theme
     c = get_theme(page)
     initials = get_initials(user.get('first_name', ''), user.get('last_name', ''))
+
+    # Load profile picture setting for this user
+    user_id = user.get('id')
+    profile_picture = db.get_setting(user_id, 'profile_picture', '') or None if user_id else None
     
     # Responsive values
     width = page.width or 400
@@ -1742,8 +1746,26 @@ def ProfilePage(page: ft.Page, user: dict, on_back=None):
         ),
         ft.Container(height=padding),
         ft.Container(
-            content=ft.Text(initials, size=profile_size * 0.4, weight=ft.FontWeight.W_600, color="#ffffff"),
-            width=profile_size, height=profile_size, bgcolor=c["accent"], border_radius=profile_size / 2, alignment=ft.alignment.center,
+            content=(
+                ft.Image(
+                    src=profile_picture,
+                    width=profile_size,
+                    height=profile_size,
+                    fit=ft.ImageFit.COVER,
+                )
+                if profile_picture
+                else ft.Text(
+                    initials,
+                    size=profile_size * 0.4,
+                    weight=ft.FontWeight.W_600,
+                    color="#ffffff",
+                )
+            ),
+            width=profile_size,
+            height=profile_size,
+            bgcolor=None if profile_picture else c["accent"],
+            border_radius=profile_size / 2,
+            alignment=ft.alignment.center,
         ),
         ft.Container(height=8),
         ft.Text(user_name, size=font_title, weight=ft.FontWeight.W_600, color=c["text_primary"]),
