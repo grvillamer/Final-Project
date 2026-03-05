@@ -25,12 +25,10 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     is_instructor = user.get('role') == 'instructor'
     is_admin = user.get('role') == 'admin'
     is_student = user.get('role') == 'student'
+    user_id = user.get('id')
 
     # Load profile picture (if set in settings)
-    profile_picture = None
-    if user_id:
-        profile_picture = db.get_setting(user_id, 'profile_picture', '') or None
-    user_id = user.get('id')
+    profile_picture = db.get_setting(user_id, 'profile_picture', '') or None if user_id else None
     
     # State
     current_view = {"value": "list"}  # list, map, schedule
