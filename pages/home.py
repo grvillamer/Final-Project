@@ -1495,15 +1495,10 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                         ft.Row(
                             [
                                 ft.Container(
-                                    content=ft.Image(
-                                        src="C:/Users/admin/.cursor/projects/c-Users-admin-Documents-Final-Project/assets/c__Users_admin_AppData_Roaming_Cursor_User_workspaceStorage_73b454387b7b3f91857f4d67cd8478c4_images_cropped-CCS-Logo-Site-dce4f566-0ac5-4ea3-8a89-c0f82708ae27.png",
-                                        width=32,
-                                        height=32,
-                                        fit=ft.ImageFit.CONTAIN,
-                                    ),
+                                    content=ft.Text("CS", size=14, weight=ft.FontWeight.W_700, color="#ffffff"),
                                     width=36,
                                     height=36,
-                                    bgcolor="transparent",
+                                    bgcolor=c["accent"],
                                     border_radius=8,
                                     alignment=ft.alignment.center,
                                 ),
