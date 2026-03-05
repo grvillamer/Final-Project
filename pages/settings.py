@@ -17,7 +17,8 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
     student_id = user.get('student_id', '')
     role = user.get('role', 'student')
     initials = get_initials(user.get('first_name', ''), user.get('last_name', ''))
-    phone = user.get('phone', '+63 912 345 6789')
+    # Phone comes from settings so it can be edited independently
+    phone = user.get('phone') or db.get_setting(user_id, 'phone', '+63 912 345 6789')
     
     # Responsive breakpoints
     def get_responsive_values():
@@ -489,6 +490,8 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
         rv = get_responsive_values()
         first_name_field = ft.Ref[ft.TextField]()
         last_name_field = ft.Ref[ft.TextField]()
+        student_id_field = ft.Ref[ft.TextField]()
+        email_field = ft.Ref[ft.TextField]()
         phone_field = ft.Ref[ft.TextField]()
         error_text = ft.Ref[ft.Text]()
         
@@ -499,23 +502,49 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
         def save_profile(e):
             first_name = first_name_field.current.value.strip()
             last_name = last_name_field.current.value.strip()
+            new_student_id = student_id_field.current.value.strip()
+            new_email = email_field.current.value.strip()
+            new_phone = phone_field.current.value.strip()
             
-            if not first_name or not last_name:
-                error_text.current.value = "Please fill in all fields"
+            if not first_name or not last_name or not new_student_id or not new_email:
+                error_text.current.value = "Please fill in all required fields"
                 error_text.current.visible = True
                 page.update()
                 return
             
-            success = db.update_user(user_id, first_name=first_name, last_name=last_name)
+            # Basic email validation
+            from utils.helpers import validate_email
+            if not validate_email(new_email):
+                error_text.current.value = "Please enter a valid email address"
+                error_text.current.visible = True
+                page.update()
+                return
+            
+            # Persist core profile fields
+            success = db.update_user(
+                user_id,
+                first_name=first_name,
+                last_name=last_name,
+                student_id=new_student_id,
+                email=new_email,
+            )
+            
             if success:
+                # Save phone as a user setting
+                if new_phone:
+                    db.set_setting(user_id, 'phone', new_phone)
+                
                 user['first_name'] = first_name
                 user['last_name'] = last_name
+                user['student_id'] = new_student_id
+                user['email'] = new_email
+                
                 dialog.open = False
                 page.snack_bar = ft.SnackBar(content=ft.Text("Profile updated!"), bgcolor=c["success"])
                 page.snack_bar.open = True
                 refresh_page()
             else:
-                error_text.current.value = "Failed to update"
+                error_text.current.value = "Failed to update profile. Student ID or email may already be in use."
                 error_text.current.visible = True
                 page.update()
         
@@ -530,6 +559,14 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                         label_style=ft.TextStyle(color=c["text_secondary"]),
                         text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
                     ft.TextField(ref=last_name_field, value=user.get('last_name', ''), label="Last Name",
+                        border_color=c["border"], focused_border_color=c["accent"],
+                        label_style=ft.TextStyle(color=c["text_secondary"]),
+                        text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
+                    ft.TextField(ref=student_id_field, value=student_id, label="Student ID",
+                        border_color=c["border"], focused_border_color=c["accent"],
+                        label_style=ft.TextStyle(color=c["text_secondary"]),
+                        text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
+                    ft.TextField(ref=email_field, value=email, label="Email",
                         border_color=c["border"], focused_border_color=c["accent"],
                         label_style=ft.TextStyle(color=c["text_secondary"]),
                         text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),

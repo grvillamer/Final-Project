@@ -25,6 +25,11 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     is_instructor = user.get('role') == 'instructor'
     is_admin = user.get('role') == 'admin'
     is_student = user.get('role') == 'student'
+
+    # Load profile picture (if set in settings)
+    profile_picture = None
+    if user_id:
+        profile_picture = db.get_setting(user_id, 'profile_picture', '') or None
     user_id = user.get('id')
     
     # State
@@ -1492,10 +1497,15 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                         ft.Row(
                             [
                                 ft.Container(
-                                    content=ft.Text("CS", size=14, weight=ft.FontWeight.W_700, color="#ffffff"),
+                                    content=ft.Image(
+                                        src="C:/Users/admin/.cursor/projects/c-Users-admin-Documents-Final-Project/assets/c__Users_admin_AppData_Roaming_Cursor_User_workspaceStorage_73b454387b7b3f91857f4d67cd8478c4_images_cropped-CCS-Logo-Site-dce4f566-0ac5-4ea3-8a89-c0f82708ae27.png",
+                                        width=32,
+                                        height=32,
+                                        fit=ft.ImageFit.CONTAIN,
+                                    ),
                                     width=36,
                                     height=36,
-                                    bgcolor=c["accent"],
+                                    bgcolor="transparent",
                                     border_radius=8,
                                     alignment=ft.alignment.center,
                                 ),
@@ -1510,10 +1520,24 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                             spacing=8,
                         ),
                         ft.Container(
-                            content=ft.Text(initials, size=12, weight=ft.FontWeight.W_600, color="#ffffff"),
+                            content=(
+                                ft.Image(
+                                    src=profile_picture,
+                                    width=32,
+                                    height=32,
+                                    fit=ft.ImageFit.COVER,
+                                )
+                                if profile_picture
+                                else ft.Text(
+                                    initials,
+                                    size=12,
+                                    weight=ft.FontWeight.W_600,
+                                    color="#ffffff",
+                                )
+                            ),
                             width=32,
                             height=32,
-                            bgcolor=c["accent"],
+                            bgcolor=None if profile_picture else c["accent"],
                             border_radius=16,
                             alignment=ft.alignment.center,
                             on_click=lambda e: on_navigate("profile") if on_navigate else None,

@@ -430,6 +430,16 @@ class Database:
         """Delete a user and all their related data"""
         try:
             cursor = self.conn.cursor()
+
+            # If user is an instructor, delete their classes (and related data)
+            cursor.execute('SELECT id FROM classes WHERE instructor_id = ?', (user_id,))
+            class_rows = cursor.fetchall()
+            for row in class_rows:
+                try:
+                    # Reuse existing helper which already cleans up attendance, enrollments, etc.
+                    self.delete_class(row['id'])
+                except Exception as ex:
+                    print(f"[DATABASE] Failed to delete class {row['id']} for user {user_id}: {ex}")
             
             # Delete user's room schedules
             cursor.execute('DELETE FROM room_schedules WHERE instructor_id = ?', (user_id,))
@@ -445,6 +455,13 @@ class Database:
             
             # Delete user's sync queue items
             cursor.execute('DELETE FROM sync_queue WHERE user_id = ?', (user_id,))
+
+            # Delete user sessions and activity logs
+            cursor.execute('DELETE FROM user_sessions WHERE user_id = ?', (user_id,))
+            cursor.execute('DELETE FROM user_activity WHERE user_id = ?', (user_id,))
+
+            # Optionally clean audit logs referencing this user (not strictly required)
+            cursor.execute('DELETE FROM audit_logs WHERE user_id = ?', (user_id,))
             
             # Finally, delete the user
             cursor.execute('DELETE FROM users WHERE id = ?', (user_id,))
@@ -460,7 +477,8 @@ class Database:
         if not kwargs:
             return False
         
-        allowed_fields = ['email', 'first_name', 'last_name', 'profile_image']
+        # Allow updating core profile fields; student_id/email remain UNIQUE in the schema
+        allowed_fields = ['email', 'first_name', 'last_name', 'profile_image', 'student_id']
         updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
         
         if not updates:
@@ -470,11 +488,15 @@ class Database:
         values = list(updates.values()) + [user_id]
         
         cursor = self.conn.cursor()
-        cursor.execute(f'''
-            UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-        ''', values)
-        self.conn.commit()
-        return cursor.rowcount > 0
+        try:
+            cursor.execute(f'''
+                UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+            ''', values)
+            self.conn.commit()
+            return cursor.rowcount > 0
+        except sqlite3.IntegrityError as exc:
+            print(f"[DATABASE] Failed to update user {user_id}: {exc}")
+            return False
     
     def update_password(self, user_id: int, new_password: str, check_history: bool = True) -> tuple:
         """
