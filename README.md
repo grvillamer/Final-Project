@@ -320,6 +320,33 @@ This application implements comprehensive security controls for the Information 
 3. **Offline-first strategy** - SQLite with sync capability
 4. **Responsive UI** - Works on all screen sizes
 
+## 🆕 What's New in V2.0
+
+This version upgrades the original V1 "it works" prototype into a more robust and showcase-ready release:
+
+- **Robustness & Reliability**
+  - Improved input validation across authentication, scheduling, and search flows
+  - Friendlier error and feedback messages instead of raw error outputs
+  - Better handling of empty states (no rooms, no schedules, no history)
+  - Loading and progress indicators on long-running operations
+
+- **UX & Polish**
+  - More consistent layout, spacing, and color usage across all pages
+  - Clear navigation between student, instructor, and admin views
+  - Refined empty-state designs with guidance actions (e.g., set class, create schedule)
+  - Responsive layout that works across common desktop and web viewports
+
+- **Feature Depth**
+  - Powerful room search and filtering (by floor, type, and status)
+  - Enhanced classroom and schedule management for instructors
+  - Additional feedback states (success, error, confirmation) on key actions
+  - Strengthened data persistence with an improved SQLite layer
+
+- **Developer Quality & Documentation**
+  - Cleaner, more modular code structure (core, models, services, pages, components)
+  - Expanded test suite (unit + integration + manual checklist)
+  - Overhauled `README` with setup instructions, feature overview, and screenshots
+
 ### 🔒 Security Enhancements (Information Assurance Project)
 
 **Selected Optional Features (3+):**
