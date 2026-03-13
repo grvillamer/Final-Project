@@ -1445,11 +1445,33 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         )
     
     def time_to_minutes(time_str: str) -> int:
-        """Convert time string (HH:MM) to minutes from midnight"""
+        """
+        Convert a flexible time string to minutes from midnight.
+        Accepts:
+        - 24h: "07:00", "13:30"
+        - 12h: "7:00 AM", "1:30 pm"
+        """
         try:
-            parts = time_str.split(':')
+            if not time_str:
+                return 0
+            s = time_str.strip().upper()
+            # Separate AM/PM if present
+            suffix = None
+            if " " in s:
+                main, suffix = s.split(None, 1)
+            else:
+                main = s
+            if suffix in ("AM", "PM"):
+                h, m = [int(p) for p in main.split(":", 1)]
+                if suffix == "PM" and h != 12:
+                    h += 12
+                if suffix == "AM" and h == 12:
+                    h = 0
+                return h * 60 + m
+            # Default 24h handling
+            parts = main.split(":", 1)
             return int(parts[0]) * 60 + int(parts[1])
-        except:
+        except Exception:
             return 0
     
     def build_timetable_view():
@@ -1459,9 +1481,9 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
         
-        # Time range: 7:00 AM to 9:00 PM (in 30-min increments for better precision)
+        # Time range: 7:00 AM to 5:00 PM (in 30-min increments for better precision)
         start_hour = 7
-        end_hour = 21
+        end_hour = 17
         slot_height = 30  # Height per 30-min slot
         
         # Group schedules by day

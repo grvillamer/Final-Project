@@ -542,6 +542,31 @@ class Database:
                 FROM users WHERE is_active = 1 ORDER BY created_at DESC
             ''')
         return [dict(row) for row in cursor.fetchall()]
+
+    def get_users_by_role(self, role: str, include_inactive: bool = False) -> List[Dict]:
+        """Get users filtered by role (admin helper)."""
+        cursor = self.conn.cursor()
+        if include_inactive:
+            cursor.execute(
+                '''
+                SELECT id, student_id, email, first_name, last_name, role, is_active
+                FROM users
+                WHERE role = ?
+                ORDER BY last_name, first_name
+                ''',
+                (role,),
+            )
+        else:
+            cursor.execute(
+                '''
+                SELECT id, student_id, email, first_name, last_name, role, is_active
+                FROM users
+                WHERE role = ? AND is_active = 1
+                ORDER BY last_name, first_name
+                ''',
+                (role,),
+            )
+        return [dict(row) for row in cursor.fetchall()]
     
     def get_user_by_student_id(self, student_id: str) -> Optional[Dict]:
         """Get user by student ID"""

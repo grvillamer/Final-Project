@@ -192,9 +192,14 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         start_time_dropdown = ft.Ref[ft.Dropdown]()
         end_time_dropdown = ft.Ref[ft.Dropdown]()
         semester_dropdown = ft.Ref[ft.Dropdown]()
+        instructor_dropdown = ft.Ref[ft.Dropdown]()
         section_field = ft.Ref[ft.TextField]()
         error_text = ft.Ref[ft.Text]()
         availability_text = ft.Ref[ft.Text]()
+
+        can_manage_room_schedule = is_instructor or is_admin
+        if not can_manage_room_schedule:
+            return
         
         # Day options
         day_options = [
@@ -222,12 +227,21 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
 
             time_options.append(ft.dropdown.Option(time_str, display))
         
-        # Semester options
+        # Semester options (updated to AY 2025-2026)
         semester_options = [
-            ft.dropdown.Option("1st Semester 2024-2025", "1st Semester 2024-2025"),
-            ft.dropdown.Option("2nd Semester 2024-2025", "2nd Semester 2024-2025"),
-            ft.dropdown.Option("Summer 2025", "Summer 2025"),
+            ft.dropdown.Option("1st Semester 2025-2026", "1st Semester 2025-2026"),
+            ft.dropdown.Option("2nd Semester 2025-2026", "2nd Semester 2025-2026"),
+            ft.dropdown.Option("Summer 2026", "Summer 2026"),
         ]
+
+        # Admin: choose which instructor owns the schedule
+        instructor_options = []
+        if is_admin:
+            instructors = db.get_users_by_role("instructor", include_inactive=False)
+            instructor_options = [
+                ft.dropdown.Option(str(u["id"]), f'{u["last_name"]}, {u["first_name"]} ({u["student_id"]})')
+                for u in instructors
+            ]
         
         def close_dialog(e):
             dialog.open = False
@@ -246,10 +260,8 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                 return
             
             # Check for conflicts on the selected day
-            # For demo, we'll check today's date - in real app, check all semester dates
-            from datetime import datetime
+            # Quick check: validate on the next occurrence of this weekday
             today = datetime.now()
-            # Find next occurrence of selected day
             days_map = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6}
             target_day = days_map.get(day, 0)
             days_ahead = target_day - today.weekday()
@@ -257,7 +269,7 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                 days_ahead += 7
             next_date = today + timedelta(days=days_ahead)
             date_str = next_date.strftime("%Y-%m-%d")
-            
+
             has_conflict = db.check_schedule_conflict(room['id'], date_str, start, end)
             
             if has_conflict:
@@ -277,6 +289,19 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
             end_time = end_time_dropdown.current.value
             semester = semester_dropdown.current.value
             section = section_field.current.value.strip() if section_field.current.value else ""
+
+            # Determine instructor for the schedule
+            schedule_instructor_id = user_id
+            if is_admin:
+                if not instructor_dropdown.current or not instructor_dropdown.current.value:
+                    error_text.current.value = "Please select an instructor"
+                    error_text.current.visible = True
+                    page.update()
+                    return
+                try:
+                    schedule_instructor_id = int(instructor_dropdown.current.value)
+                except Exception:
+                    schedule_instructor_id = user_id
             
             if not subject:
                 error_text.current.value = "Please enter a subject name"
@@ -302,48 +327,102 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                 page.update()
                 return
             
-            # Calculate date for the selected day
-            from datetime import datetime
-            today = datetime.now()
-            days_map = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6}
-            target_day = days_map.get(day, 0)
-            days_ahead = target_day - today.weekday()
-            if days_ahead < 0:
-                days_ahead += 7
-            next_date = today + timedelta(days=days_ahead)
-            date_str = next_date.strftime("%Y-%m-%d")
-            
-            # Check availability before setting
-            if db.check_schedule_conflict(room['id'], date_str, start_time, end_time):
-                error_text.current.value = "Room is occupied at this time. Please choose a different slot."
+            # Build semester date range (so schedules apply for the whole semester)
+            def _parse_semester_range(label: str):
+                # Expected examples:
+                # - "1st Semester 2025-2026" (Aug-Dec of 2025)
+                # - "2nd Semester 2025-2026" (Jan-May of 2026)
+                # - "Summer 2026" (Jun-Jul of 2026)
+                if not label:
+                    return None
+                label = label.strip()
+                try:
+                    if label.startswith("1st Semester"):
+                        ay = label.split("1st Semester", 1)[1].strip()
+                        start_year = int(ay.split("-")[0])
+                        start = datetime(start_year, 8, 1)
+                        end = datetime(start_year, 12, 31)
+                        return start, end
+                    if label.startswith("2nd Semester"):
+                        ay = label.split("2nd Semester", 1)[1].strip()
+                        start_year = int(ay.split("-")[0])
+                        end_year = start_year + 1
+                        start = datetime(end_year, 1, 1)
+                        end = datetime(end_year, 5, 31)
+                        return start, end
+                    if label.startswith("Summer"):
+                        y = int(label.split("Summer", 1)[1].strip())
+                        start = datetime(y, 6, 1)
+                        end = datetime(y, 7, 31)
+                        return start, end
+                except Exception:
+                    return None
+                return None
+
+            semester_range = _parse_semester_range(semester or "")
+            if not semester_range:
+                error_text.current.value = "Please select a valid semester"
                 error_text.current.visible = True
                 page.update()
                 return
-            
-            # Create schedule with day info in notes
+
+            start_date, end_date = semester_range
+
+            # Generate weekly dates for the selected weekday within semester range
+            days_map = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6}
+            target_day = days_map.get(day, 0)
+
+            # Find first occurrence on/after semester start
+            first = start_date
+            days_ahead = (target_day - first.weekday()) % 7
+            first_occurrence = first + timedelta(days=days_ahead)
+
+            dates = []
+            d = first_occurrence
+            while d <= end_date:
+                dates.append(d.strftime("%Y-%m-%d"))
+                d += timedelta(days=7)
+
+            if not dates:
+                error_text.current.value = "No matching dates found for this semester/day."
+                error_text.current.visible = True
+                page.update()
+                return
+
+            # Create schedules with semester info in notes
             notes = f"Day: {day} | Semester: {semester or 'Not specified'}"
             if section:
                 notes += f" | Section: {section}"
-            
-            schedule_id = db.create_room_schedule(
-                room_id=room['id'], instructor_id=user_id,
-                subject_name=subject, schedule_date=date_str,
-                start_time=start_time, end_time=end_time, notes=notes
-            )
-            
-            if schedule_id:
-                dialog.open = False
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"Class scheduled in {room['name']} on {day}s!"),
-                    bgcolor=c["success"],
+
+            created = 0
+            conflicts = 0
+            for date_str in dates:
+                schedule_id = db.create_room_schedule(
+                    room_id=room["id"],
+                    instructor_id=schedule_instructor_id,
+                    subject_name=subject,
+                    schedule_date=date_str,
+                    start_time=start_time,
+                    end_time=end_time,
+                    notes=notes,
                 )
+                if schedule_id:
+                    created += 1
+                else:
+                    conflicts += 1
+
+            if created > 0:
+                dialog.open = False
+                msg = f"Scheduled {created} weekly sessions for {semester}."
+                if conflicts:
+                    msg += f" ({conflicts} skipped due to conflicts)"
+                page.snack_bar = ft.SnackBar(content=ft.Text(msg), bgcolor=c["success"])
                 page.snack_bar.open = True
-                # Refresh data
                 nonlocal all_classrooms
                 all_classrooms = load_classrooms()
                 update_content()
             else:
-                error_text.current.value = "Failed to set class schedule"
+                error_text.current.value = "No schedules created (all dates conflicted)."
                 error_text.current.visible = True
                 page.update()
         
@@ -402,12 +481,25 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                     
                     ft.Dropdown(
                         ref=semester_dropdown, label="Semester",
-                        value="1st Semester 2024-2025",
+                        value="1st Semester 2025-2026",
                         options=semester_options, border_color=c["border"],
                         focused_border_color=c["accent"], 
                         text_style=ft.TextStyle(color=c["text_primary"]),
                         label_style=ft.TextStyle(color=c["text_secondary"]),
                         border_radius=8,
+                    ),
+
+                    ft.Dropdown(
+                        ref=instructor_dropdown,
+                        label="Instructor",
+                        value=instructor_options[0].key if instructor_options else None,
+                        options=instructor_options,
+                        border_color=c["border"],
+                        focused_border_color=c["accent"],
+                        text_style=ft.TextStyle(color=c["text_primary"]),
+                        label_style=ft.TextStyle(color=c["text_secondary"]),
+                        border_radius=8,
+                        visible=is_admin,
                     ),
                     
                     ft.Dropdown(
@@ -804,8 +896,8 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         
         # Action buttons - responsive for all users
         buttons = []
-        if is_instructor:
-            # Instructors can set class schedules for available rooms or edit their schedules
+        if is_instructor or is_admin:
+            # Instructors/Admins can set class schedules for available rooms or edit their schedules
             if status == "available":
                 buttons.append(
                     ft.ElevatedButton(
@@ -1091,9 +1183,31 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     # ==================== STUDENT WEEKLY TIMETABLE VIEW ====================
 
     def _time_to_minutes(time_str: str) -> int:
-        """Convert time string (HH:MM) to minutes from midnight."""
+        """
+        Convert a flexible time string to minutes from midnight.
+        Accepts:
+        - 24h: "07:00", "13:30"
+        - 12h: "7:00 AM", "1:30 pm"
+        """
         try:
-            parts = time_str.split(":")
+            if not time_str:
+                return 0
+            s = time_str.strip().upper()
+            # Separate AM/PM if present
+            suffix = None
+            if " " in s:
+                main, suffix = s.split(None, 1)
+            else:
+                main = s
+            if suffix in ("AM", "PM"):
+                h, m = [int(p) for p in main.split(":", 1)]
+                if suffix == "PM" and h != 12:
+                    h += 12
+                if suffix == "AM" and h == 12:
+                    h = 0
+                return h * 60 + m
+            # Default 24h HH:MM
+            parts = main.split(":", 1)
             return int(parts[0]) * 60 + int(parts[1])
         except Exception:
             return 0
@@ -1180,9 +1294,9 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         schedules = _get_student_schedules_for_home()
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-        # Time range 7:00–19:00 to stay compact on home
+        # Time range 7:00–17:00 to stay compact on home and hide evening slots
         start_hour = 7
-        end_hour = 19
+        end_hour = 17
         slot_height = 26  # pixels per 30 mins
 
         # Group schedules by day

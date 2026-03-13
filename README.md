@@ -2,12 +2,12 @@
 
 A secure cross-platform classroom management application with **Access Control System** built with **Flet** (Python + Flutter rendering) for Camarines Sur Polytechnic Colleges (CSPC) - College of Computer Studies (CCS).
 
-**Information Assurance Final Project** - Implements secure authentication, RBAC, audit logging, and security controls.
+**Information Assurance Final Project** - Implements secure authentication, RBAC, and security controls.
 
 ![Platform](https://img.shields.io/badge/Platform-Desktop%20%7C%20Web%20%7C%20Mobile-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-green)
 ![Flet](https://img.shields.io/badge/Flet-0.21+-purple)
-![Security](https://img.shields.io/badge/Security-RBAC%20%7C%20Audit%20Logs-red)
+![Security](https://img.shields.io/badge/Security-RBAC%20%7C%20Security%20Controls-red)
 
 ## 🎯 Project Overview
 
@@ -79,8 +79,7 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 │   ├── activity.py        # Recent activity page
 │   ├── schedule.py        # Class schedule page
 │   ├── settings.py        # Settings & profile
-│   ├── admin.py           # Admin user management (RBAC)
-│   └── audit_logs.py      # Audit log viewer (Admin)
+│   └── admin.py           # Admin user management (RBAC)
 │
 ├── /components            # Reusable UI components
 │   ├── navigation.py      # Navigation components
@@ -91,7 +90,6 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 │   └── theme.py           # Theme management (Light/Dark)
 │
 ├── /logs                  # Log files (auto-created)
-│   ├── audit.log          # All audit events
 │   └── security.log       # Security-critical events
 │
 ├── /tests                 # Test suite
@@ -211,7 +209,7 @@ The test suite includes:
 **Administrator (Full Access):**
 - Student ID: `ADMIN001`
 - Password: `Admin@123`
-- Access: User Management, Audit Logs, All Features
+- Access: User Management and all features
 
 **Instructor:**
 - Student ID: `INST001`
@@ -283,12 +281,6 @@ This application implements comprehensive security controls for the Information 
 - Blocks common/weak passwords
 - Real-time strength indicator
 
-#### 📊 Audit Logging
-- All authentication events (success/failure)
-- Administrative actions (user CRUD, role changes)
-- Access denied events
-- Searchable log viewer with filters
-
 #### 🛡️ Additional Security
 - Input validation and sanitization
 - Secure configuration via environment variables
@@ -357,13 +349,7 @@ This version upgrades the original V1 "it works" prototype into a more robust an
    - Prevents reuse of last 5 passwords
    - Real-time strength indicator
 
-2. ✅ **Audit Log Viewer** (filter by actor, date, action)
-   - Complete audit trail for all security events
-   - Filterable by action type
-   - Pagination support
-   - Summary statistics
-
-3. ✅ **User Activity Monitoring** (last login, failed attempts)
+2. ✅ **User Activity Monitoring** (last login, failed attempts)
    - Login history tracking
    - Failed attempt monitoring
    - Account lockout status
