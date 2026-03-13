@@ -34,7 +34,7 @@ def main(page: ft.Page):
     """Main application entry point"""
     
     # App configuration
-    page.title = "Smart Classroom Availability and Locator App for CCS"
+    page.title = "SpottEd"
     page.theme_mode = ft.ThemeMode.DARK
     page.bgcolor = "#0d1520"
     page.padding = 0
