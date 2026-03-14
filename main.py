@@ -519,10 +519,18 @@ if __name__ == "__main__":
     # - Web: flet run main.py --web (or flet run main.py -w)
     # - Android: flet run main.py --android
     # - iOS: flet run main.py --ios
+    # ft.app(
+    #     target=main,
+    #     assets_dir="assets",  # For static assets 
+    #     view=ft.AppView.WEB_BROWSER,       
+    # )
+
     ft.app(
         target=main,
         assets_dir="assets",  # For static assets 
-        view=ft.AppView.WEB_BROWSER,       
+        view=ft.AppView.WEB_BROWSER,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
     )
 
 
