@@ -13,6 +13,7 @@ from database import db
 from utils.theme import get_theme
 from config import config
 from core.audit import audit_logger
+import os
 
 # Import pages
 from pages.splash import SplashPage
