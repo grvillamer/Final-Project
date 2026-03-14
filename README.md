@@ -112,12 +112,17 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 
 1. **Clone or download the project**
 
-2. **Install dependencies:**
+2. **Install runtime dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Run the application:**
+3. *(Optional)* **Install development dependencies (tests, linting, formatting):**
+   ```bash
+   pip install -r dev-requirements.txt
+   ```
+
+4. **Run the application:**
    ```bash
    flet run main.py
    ```
