@@ -521,7 +521,8 @@ if __name__ == "__main__":
     # - iOS: flet run main.py --ios
     ft.app(
         target=main,
-        assets_dir="assets",  # For static assets
+        assets_dir="assets",  # For static assets 
+        view=ft.AppView.WEB_BROWSER,       
     )
 
 
