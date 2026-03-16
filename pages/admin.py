@@ -498,7 +498,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
         audit_logger.log(action, user['id'], f"{user['first_name']} {user['last_name']}", 
                         {'target_user': target_user['student_id'] if target_user else 'Unknown'})
         
-        page.snack_bar = ft.SnackBar(content=ft.Text(msg, color="#ffffff"), bgcolor="#4CAF50")
+        page.snack_bar = ft.SnackBar(content=ft.Text(msg, color="#ffffff"), bgcolor=c["success"])
         page.snack_bar.open = True
         load_users()
     
@@ -507,7 +507,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
         if is_locked:
             db.unlock_user_account(user_id)
             audit_logger.log('ACCOUNT_UNLOCKED', user['id'], f"{user['first_name']} {user['last_name']}")
-            page.snack_bar = ft.SnackBar(content=ft.Text("Account unlocked", color="#ffffff"), bgcolor="#4CAF50")
+            page.snack_bar = ft.SnackBar(content=ft.Text("Account unlocked", color="#ffffff"), bgcolor=c["success"])
             page.snack_bar.open = True
             load_users()
         else:
@@ -750,9 +750,9 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                 ),
                 padding=ft.padding.symmetric(horizontal=rv["padding"], vertical=8),
             ),
-            # Users list
+            # Users list (expand so it fills height and scrolls inside — no empty gap)
             ft.Container(
-                content=ft.Column(ref=users_list, scroll=ft.ScrollMode.AUTO, spacing=8),
+                content=ft.Column(ref=users_list, scroll=ft.ScrollMode.AUTO, spacing=8, expand=True),
                 expand=True,
                 padding=ft.padding.symmetric(horizontal=rv["padding"]),
             ),
