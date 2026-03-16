@@ -339,7 +339,7 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
                 margin=ft.margin.only(bottom=20),
             ),
             
-            # CSS Logo Card
+            # CCS Logo Card
             ft.Container(
                 content=ft.Column([
                     ft.Container(
@@ -355,7 +355,7 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
                         alignment=ft.alignment.center,
                         clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                     ),
-                    ft.Text("CSS", size=28, weight=ft.FontWeight.W_800, color=c["accent"]),
+                    ft.Text("CCS", size=28, weight=ft.FontWeight.W_800, color=c["accent"]),
                     ft.Text("Camarines Sur Polytechnic Colleges", size=13, color=c["text_secondary"],
                             text_align=ft.TextAlign.CENTER),
                     ft.Text("Classroom Management Locator", size=11, color=c["text_hint"]),
