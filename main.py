@@ -518,10 +518,13 @@ if __name__ == "__main__":
     # Use ft.app() for this Flet version
     # - Desktop: python main.py
     # - Web: python main.py (or set view/port as needed)
+    # - To prevent a browser from opening (e.g. running in VS Code only), set view to NONE.
+    view = ft.AppView.NONE if os.environ.get("FLET_NO_BROWSER", "1") == "1" else ft.AppView.WEB_BROWSER
+
     ft.app(
         target=main,
         assets_dir="assets",
-        view=ft.AppView.WEB_BROWSER,
+        view=view,
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 8080)),
     )
