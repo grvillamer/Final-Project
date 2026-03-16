@@ -515,11 +515,11 @@ def main(page: ft.Page):
 
 # Run the app
 if __name__ == "__main__":
-    # Flet 0.80+ uses ft.run() instead of ft.app()
+    # Use ft.app() for this Flet version
     # - Desktop: python main.py
     # - Web: python main.py (or set view/port as needed)
-    ft.run(
-        main,
+    ft.app(
+        target=main,
         assets_dir="assets",
         view=ft.AppView.WEB_BROWSER,
         host="0.0.0.0",
