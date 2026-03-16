@@ -1718,18 +1718,18 @@ For questions about these terms, contact us at legal@smartclassroom.edu"""
             ),
             
             ft.Container(height=20),
-        ], spacing=0, scroll=ft.ScrollMode.AUTO)
+        ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
         
         return settings_content, responsive
     
     # Initial build
     content, responsive = build_settings_content()
     
-    # Wrap in responsive container with max-width for larger screens
-    # Use width constraint when max_width is set, otherwise expand
+    # Wrap in responsive container with max-width for larger screens.
+    # Let the scrollable column expand so no empty gray block appears below the list.
     inner_container = ft.Container(
         content=content,
-        expand=True if responsive["max_width"] is None else False,
+        expand=True,
         width=responsive["max_width"],
         padding=ft.padding.symmetric(horizontal=responsive["padding"], vertical=12),
     )

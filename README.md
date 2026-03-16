@@ -228,10 +228,11 @@ The test suite includes:
 
 ## 👤 About Admin
 
-The **Admin** interface (User Management) is available only to users with the **Administrator** role. Open it from **Settings → Admin Panel → User Management**.
+The **Admin** interface (User Management) is only available to users with the **Administrator** role.  
+**Open:** **Settings → Admin Panel → User Management**.
 
-### What admins can do
-- **User list** – View all users (admins, instructors, students) with search by name, student ID, or email
+### What the admin can do
+- **User list** – View all users (admins, instructors, students); search by name, student ID, or email
 - **Create users** – Add new users and assign role (Student, Instructor, Administrator); password policy enforced
 - **User details** – View profile, status, last login, failed attempts, and recent activity
 - **Change role** – Change a user’s role (e.g. Student → Instructor, Instructor → Admin)
@@ -240,7 +241,7 @@ The **Admin** interface (User Management) is available only to users with the **
 - **Responsive UI** – Admin page and dialogs work on mobile, tablet, and desktop
 
 ### Stats on the Admin page
-- Total users, and counts by role (Admins, Instructors, Students) for a quick overview.
+- **Total users** and counts by role (Admins, Instructors, Students) for a quick overview.
 
 ## 📋 User Flows
 
