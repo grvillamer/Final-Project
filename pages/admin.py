@@ -21,19 +21,45 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
             'Admin Panel', 
             'admin'
         )
+        deny_theme = get_theme(page)
         return ft.Container(
-            content=ft.Column([
-                ft.Icon(ft.Icons.BLOCK, size=64, color="#f44336"),
-                ft.Text("Access Denied", size=24, weight=ft.FontWeight.W_600, color="#f44336"),
-                ft.Text("You don't have permission to access this page.", color="#666666"),
-                ft.ElevatedButton("Go Back", on_click=lambda e: on_navigate('home') if on_navigate else None),
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=16),
+            content=ft.Column(
+                [
+                    ft.Icon(ft.Icons.BLOCK, size=64, color=deny_theme["error"]),
+                    ft.Text("Access Denied", size=24, weight=ft.FontWeight.W_600, color=deny_theme["error"]),
+                    ft.Text(
+                        "You don't have permission to access this page.",
+                        color=deny_theme["text_secondary"],
+                        text_align=ft.TextAlign.CENTER,
+                        size=14,
+                    ),
+                    ft.ElevatedButton(
+                        "Go Back",
+                        bgcolor=deny_theme["accent"],
+                        color="#ffffff",
+                        on_click=lambda e: on_navigate('home') if on_navigate else None,
+                    ),
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=16,
+                wrap=True,
+            ),
             alignment=ft.alignment.center,
             expand=True,
+            padding=24,
         )
     
     def t():
         return get_theme(page)
+    
+    def get_responsive():
+        """Breakpoints for admin layout (mobile / tablet / desktop)."""
+        w = page.width or 400
+        if w < 480:
+            return {"stats_columns": 2, "header_wrap": True, "dialog_width": min(w * 0.92, 360), "padding": 12}
+        if w < 768:
+            return {"stats_columns": 2, "header_wrap": True, "dialog_width": min(w * 0.9, 420), "padding": 14}
+        return {"stats_columns": 4, "header_wrap": False, "dialog_width": 420, "padding": 16}
     
     c = t()
     
@@ -73,46 +99,62 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                 
                 users_list.current.controls.append(
                     ft.Container(
-                        content=ft.Row([
-                            # Avatar
-                            ft.Container(
-                                content=ft.Text(
-                                    get_initials(u['first_name'], u['last_name']),
-                                    size=14,
-                                    weight=ft.FontWeight.W_600,
-                                    color="#ffffff" if is_active else "#999999"
+                        content=ft.Row(
+                            [
+                                # Avatar
+                                ft.Container(
+                                    content=ft.Text(
+                                        get_initials(u['first_name'], u['last_name']),
+                                        size=14,
+                                        weight=ft.FontWeight.W_600,
+                                        color="#ffffff" if is_active else "#999999"
+                                    ),
+                                    width=40,
+                                    height=40,
+                                    bgcolor=role_colors.get(u['role'], '#9E9E9E') if is_active else '#BDBDBD',
+                                    border_radius=20,
+                                    alignment=ft.alignment.center,
                                 ),
-                                width=40,
-                                height=40,
-                                bgcolor=role_colors.get(u['role'], '#9E9E9E') if is_active else '#BDBDBD',
-                                border_radius=20,
-                                alignment=ft.alignment.center,
-                            ),
-                            # User info
-                            ft.Column([
-                                ft.Row([
-                                    ft.Text(
-                                        f"{u['first_name']} {u['last_name']}", 
-                                        size=14, 
-                                        weight=ft.FontWeight.W_500,
-                                        color=c["text_primary"] if is_active else c["text_hint"]
-                                    ),
-                                    ft.Container(
-                                        content=ft.Text(u['role'].upper(), size=10, color="#ffffff"),
-                                        bgcolor=role_colors.get(u['role'], '#9E9E9E'),
-                                        padding=ft.padding.symmetric(horizontal=8, vertical=2),
-                                        border_radius=4,
-                                    ),
-                                    ft.Icon(ft.Icons.LOCK, size=14, color="#f44336") if is_locked else ft.Container(),
-                                    ft.Icon(ft.Icons.BLOCK, size=14, color="#9E9E9E") if not is_active else ft.Container(),
-                                ], spacing=8),
-                                ft.Text(f"{u['student_id']} • {u['email']}", size=11, color=c["text_hint"]),
-                            ], spacing=2, expand=True),
-                            # Actions
-                            ft.PopupMenuButton(
-                                icon=ft.Icons.MORE_VERT,
-                                icon_color=c["text_secondary"],
-                                items=[
+                                # User info
+                                ft.Column(
+                                    [
+                                        ft.Row(
+                                            [
+                                                ft.Text(
+                                                    f"{u['first_name']} {u['last_name']}",
+                                                    size=14,
+                                                    weight=ft.FontWeight.W_500,
+                                                    color=c["text_primary"] if is_active else c["text_hint"],
+                                                    overflow=ft.TextOverflow.ELLIPSIS,
+                                                    expand=True,
+                                                ),
+                                                ft.Container(
+                                                    content=ft.Text(u['role'].upper(), size=10, color="#ffffff"),
+                                                    bgcolor=role_colors.get(u['role'], '#9E9E9E'),
+                                                    padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                                                    border_radius=4,
+                                                ),
+                                                ft.Icon(ft.Icons.LOCK, size=14, color="#f44336") if is_locked else ft.Container(),
+                                                ft.Icon(ft.Icons.BLOCK, size=14, color="#9E9E9E") if not is_active else ft.Container(),
+                                            ],
+                                            spacing=8,
+                                            wrap=True,
+                                        ),
+                                        ft.Text(
+                                            f"{u['student_id']} • {u['email']}",
+                                            size=11,
+                                            color=c["text_hint"],
+                                            overflow=ft.TextOverflow.ELLIPSIS,
+                                        ),
+                                    ],
+                                    spacing=2,
+                                    expand=True,
+                                ),
+                                # Actions
+                                ft.PopupMenuButton(
+                                    icon=ft.Icons.MORE_VERT,
+                                    icon_color=c["text_secondary"],
+                                    items=[
                                     ft.PopupMenuItem(
                                         text="View Details",
                                         icon=ft.Icons.PERSON,
@@ -141,7 +183,10 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                                     ),
                                 ],
                             ),
-                        ], spacing=12),
+                            ],
+                            spacing=12,
+                            wrap=True,
+                        ),
                         bgcolor=c["bg_card"],
                         padding=12,
                         border_radius=10,
@@ -166,6 +211,8 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
     def show_create_user_dialog(e):
         """Show dialog to create new user"""
         c = t()
+        rv = get_responsive()
+        dw = rv["dialog_width"]
         
         first_name_field = ft.Ref[ft.TextField]()
         last_name_field = ft.Ref[ft.TextField]()
@@ -232,7 +279,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                 dialog.open = False
                 page.snack_bar = ft.SnackBar(
                     content=ft.Text(f"User {first_name} {last_name} created successfully", color="#ffffff"),
-                    bgcolor="#4CAF50",
+                    bgcolor=c["success"],
                 )
                 page.snack_bar.open = True
                 load_users()
@@ -245,42 +292,51 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
             modal=True,
             title=ft.Text("Create New User", size=18, weight=ft.FontWeight.W_600, color=c["text_primary"]),
             content=ft.Container(
-                content=ft.Column([
-                    ft.Text("", ref=error_text, size=12, color="#f44336", visible=False),
-                    ft.Row([
-                        ft.TextField(ref=first_name_field, label="First Name", expand=True,
+                content=ft.Column(
+                    [
+                        ft.Text("", ref=error_text, size=12, color=c["error"], visible=False),
+                        ft.Row(
+                            [
+                                ft.TextField(ref=first_name_field, label="First Name", expand=True,
+                                    border_color=c["border"], focused_border_color=c["accent"],
+                                    text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
+                                ft.TextField(ref=last_name_field, label="Last Name", expand=True,
+                                    border_color=c["border"], focused_border_color=c["accent"],
+                                    text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
+                            ],
+                            spacing=8,
+                            wrap=True,
+                        ),
+                        ft.TextField(ref=student_id_field, label="Student/Employee ID",
                             border_color=c["border"], focused_border_color=c["accent"],
                             text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
-                        ft.TextField(ref=last_name_field, label="Last Name", expand=True,
+                        ft.TextField(ref=email_field, label="Email",
                             border_color=c["border"], focused_border_color=c["accent"],
                             text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
-                    ], spacing=8),
-                    ft.TextField(ref=student_id_field, label="Student/Employee ID",
-                        border_color=c["border"], focused_border_color=c["accent"],
-                        text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
-                    ft.TextField(ref=email_field, label="Email",
-                        border_color=c["border"], focused_border_color=c["accent"],
-                        text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
-                    ft.TextField(ref=password_field, label="Password", password=True, can_reveal_password=True,
-                        border_color=c["border"], focused_border_color=c["accent"],
-                        text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8,
-                        on_change=on_password_change),
-                    ft.Container(ref=password_strength, content=ft.Container(), height=20),
-                    ft.Dropdown(ref=role_dropdown, label="Role", value="student",
-                        options=[
-                            ft.dropdown.Option("student", "Student"),
-                            ft.dropdown.Option("instructor", "Instructor"),
-                            ft.dropdown.Option("admin", "Administrator"),
-                        ],
-                        border_color=c["border"], focused_border_color=c["accent"],
-                        text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
-                ], spacing=12),
-                width=400,
+                        ft.TextField(ref=password_field, label="Password", password=True, can_reveal_password=True,
+                            border_color=c["border"], focused_border_color=c["accent"],
+                            text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8,
+                            on_change=on_password_change),
+                        ft.Container(ref=password_strength, content=ft.Container(), height=20),
+                        ft.Dropdown(ref=role_dropdown, label="Role", value="student",
+                            options=[
+                                ft.dropdown.Option("student", "Student"),
+                                ft.dropdown.Option("instructor", "Instructor"),
+                                ft.dropdown.Option("admin", "Administrator"),
+                            ],
+                            border_color=c["border"], focused_border_color=c["accent"],
+                            text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
+                    ],
+                    spacing=12,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                width=dw,
             ),
             actions=[
                 ft.TextButton("Cancel", on_click=close_dialog),
                 ft.ElevatedButton("Create User", bgcolor=c["accent"], color="#ffffff", on_click=create_user),
             ],
+            actions_alignment=ft.MainAxisAlignment.END,
             bgcolor=c["bg_card"],
             shape=ft.RoundedRectangleBorder(radius=16),
         )
@@ -292,6 +348,8 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
     def show_user_details(user_id: int):
         """Show user details dialog"""
         c = t()
+        rv = get_responsive()
+        dw = rv["dialog_width"]
         u = db.get_user(user_id)
         if not u:
             return
@@ -302,55 +360,63 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
             dialog.open = False
             page.update()
         
+        info_rows = [
+            ft.Row([ft.Text("Student ID:", size=12, color=c["text_hint"], width=100),
+                    ft.Text(u['student_id'], size=12, color=c["text_primary"], overflow=ft.TextOverflow.ELLIPSIS, expand=True)]),
+            ft.Row([ft.Text("Email:", size=12, color=c["text_hint"], width=100),
+                    ft.Text(u['email'], size=12, color=c["text_primary"], overflow=ft.TextOverflow.ELLIPSIS, expand=True)]),
+            ft.Row([ft.Text("Role:", size=12, color=c["text_hint"], width=100),
+                    ft.Text(u['role'].upper(), size=12, color=c["text_primary"])]),
+            ft.Row([ft.Text("Status:", size=12, color=c["text_hint"], width=100),
+                    ft.Text("Active" if u.get('is_active', 1) else "Disabled", size=12,
+                           color=c["success"] if u.get('is_active', 1) else c["error"])]),
+            ft.Row([ft.Text("Last Login:", size=12, color=c["text_hint"], width=100),
+                    ft.Text(u.get('last_login', 'Never') or 'Never', size=12, color=c["text_primary"])]),
+            ft.Row([ft.Text("Failed Attempts:", size=12, color=c["text_hint"], width=100),
+                    ft.Text(str(u.get('failed_login_attempts', 0)), size=12, color=c["text_primary"])]),
+            ft.Row([ft.Text("Created:", size=12, color=c["text_hint"], width=100),
+                    ft.Text(u.get('created_at', 'Unknown'), size=12, color=c["text_primary"])]),
+        ]
+        activity_content = [
+            ft.Container(
+                content=ft.Row([
+                    ft.Text(a['activity_type'], size=11, color=c["text_primary"], overflow=ft.TextOverflow.ELLIPSIS, expand=True),
+                    ft.Text(a['created_at'][:16], size=10, color=c["text_hint"]),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                padding=ft.padding.symmetric(vertical=4),
+            ) for a in activity
+        ] if activity else [ft.Text("No recent activity", size=12, color=c["text_hint"])]
+        
         dialog = ft.AlertDialog(
             modal=True,
-            title=ft.Text(f"{u['first_name']} {u['last_name']}", size=18, weight=ft.FontWeight.W_600, color=c["text_primary"]),
+            title=ft.Text(f"{u['first_name']} {u['last_name']}", size=18, weight=ft.FontWeight.W_600, color=c["text_primary"],
+                         overflow=ft.TextOverflow.ELLIPSIS),
             content=ft.Container(
-                content=ft.Column([
-                    # User info
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Row([ft.Text("Student ID:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text(u['student_id'], size=12, color=c["text_primary"])]),
-                            ft.Row([ft.Text("Email:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text(u['email'], size=12, color=c["text_primary"])]),
-                            ft.Row([ft.Text("Role:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text(u['role'].upper(), size=12, color=c["text_primary"])]),
-                            ft.Row([ft.Text("Status:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text("Active" if u.get('is_active', 1) else "Disabled", size=12, 
-                                          color="#4CAF50" if u.get('is_active', 1) else "#f44336")]),
-                            ft.Row([ft.Text("Last Login:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text(u.get('last_login', 'Never') or 'Never', size=12, color=c["text_primary"])]),
-                            ft.Row([ft.Text("Failed Attempts:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text(str(u.get('failed_login_attempts', 0)), size=12, color=c["text_primary"])]),
-                            ft.Row([ft.Text("Created:", size=12, color=c["text_hint"], width=100),
-                                   ft.Text(u.get('created_at', 'Unknown'), size=12, color=c["text_primary"])]),
-                        ], spacing=8),
-                        bgcolor=c["bg_secondary"],
-                        padding=12,
-                        border_radius=8,
-                    ),
-                    ft.Container(height=12),
-                    ft.Text("Recent Activity", size=14, weight=ft.FontWeight.W_500, color=c["text_primary"]),
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Container(
-                                content=ft.Row([
-                                    ft.Text(a['activity_type'], size=11, color=c["text_primary"]),
-                                    ft.Text(a['created_at'][:16], size=10, color=c["text_hint"]),
-                                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                                padding=ft.padding.symmetric(vertical=4),
-                            ) for a in activity
-                        ] if activity else [ft.Text("No recent activity", size=12, color=c["text_hint"])]),
-                        bgcolor=c["bg_secondary"],
-                        padding=12,
-                        border_radius=8,
-                        height=150,
-                    ),
-                ], spacing=4),
-                width=350,
+                content=ft.Column(
+                    [
+                        ft.Container(
+                            content=ft.Column(info_rows, spacing=8),
+                            bgcolor=c["bg_secondary"],
+                            padding=12,
+                            border_radius=8,
+                        ),
+                        ft.Container(height=12),
+                        ft.Text("Recent Activity", size=14, weight=ft.FontWeight.W_500, color=c["text_primary"]),
+                        ft.Container(
+                            content=ft.Column(activity_content, scroll=ft.ScrollMode.AUTO),
+                            bgcolor=c["bg_secondary"],
+                            padding=12,
+                            border_radius=8,
+                            height=150,
+                        ),
+                    ],
+                    spacing=4,
+                    scroll=ft.ScrollMode.AUTO,
+                ),
+                width=dw,
             ),
             actions=[ft.TextButton("Close", on_click=close_dialog)],
+            actions_alignment=ft.MainAxisAlignment.END,
             bgcolor=c["bg_card"],
             shape=ft.RoundedRectangleBorder(radius=16),
         )
@@ -362,6 +428,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
     def show_change_role_dialog(user_id: int, current_role: str):
         """Show dialog to change user role"""
         c = t()
+        rv = get_responsive()
         role_dropdown = ft.Ref[ft.Dropdown]()
         
         def close_dialog(e):
@@ -382,7 +449,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                         new_role
                     )
                     dialog.open = False
-                    page.snack_bar = ft.SnackBar(content=ft.Text("Role changed successfully", color="#ffffff"), bgcolor="#4CAF50")
+                    page.snack_bar = ft.SnackBar(content=ft.Text("Role changed successfully", color="#ffffff"), bgcolor=c["success"])
                     page.snack_bar.open = True
                     load_users()
         
@@ -401,12 +468,13 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                         border_color=c["border"], focused_border_color=c["accent"],
                         text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
                 ], spacing=12),
-                width=300,
+                width=rv["dialog_width"],
             ),
             actions=[
                 ft.TextButton("Cancel", on_click=close_dialog),
                 ft.ElevatedButton("Change Role", bgcolor=c["accent"], color="#ffffff", on_click=change_role),
             ],
+            actions_alignment=ft.MainAxisAlignment.END,
             bgcolor=c["bg_card"],
             shape=ft.RoundedRectangleBorder(radius=16),
         )
@@ -449,6 +517,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
     def show_reset_password_dialog(user_id: int):
         """Show dialog to reset user password"""
         c = t()
+        rv = get_responsive()
         password_field = ft.Ref[ft.TextField]()
         error_text = ft.Ref[ft.Text]()
         
@@ -475,7 +544,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
             if success:
                 audit_logger.log_password_change(user['id'], f"{user['first_name']} {user['last_name']}", forced=True)
                 dialog.open = False
-                page.snack_bar = ft.SnackBar(content=ft.Text("Password reset successfully", color="#ffffff"), bgcolor="#4CAF50")
+                page.snack_bar = ft.SnackBar(content=ft.Text("Password reset successfully", color="#ffffff"), bgcolor=c["success"])
                 page.snack_bar.open = True
                 page.update()
             else:
@@ -488,19 +557,20 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
             title=ft.Text("Reset User Password", size=18, weight=ft.FontWeight.W_600, color=c["text_primary"]),
             content=ft.Container(
                 content=ft.Column([
-                    ft.Text("", ref=error_text, size=12, color="#f44336", visible=False),
+                    ft.Text("", ref=error_text, size=12, color=c["error"], visible=False),
                     ft.TextField(ref=password_field, label="New Password", password=True, can_reveal_password=True,
                         border_color=c["border"], focused_border_color=c["accent"],
                         text_style=ft.TextStyle(color=c["text_primary"]), border_radius=8),
                     ft.Text("Password must be at least 8 characters with uppercase, lowercase, digit, and special character.",
                            size=10, color=c["text_hint"]),
                 ], spacing=12),
-                width=300,
+                width=rv["dialog_width"],
             ),
             actions=[
                 ft.TextButton("Cancel", on_click=close_dialog),
-                ft.ElevatedButton("Reset Password", bgcolor="#f44336", color="#ffffff", on_click=reset_password),
+                ft.ElevatedButton("Reset Password", bgcolor=c["error"], color="#ffffff", on_click=reset_password),
             ],
+            actions_alignment=ft.MainAxisAlignment.END,
             bgcolor=c["bg_card"],
             shape=ft.RoundedRectangleBorder(radius=16),
         )
@@ -512,6 +582,7 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
     def show_delete_dialog(user_id: int, user_name: str):
         """Show delete confirmation dialog"""
         c = t()
+        rv = get_responsive()
         
         def close_dialog(e):
             dialog.open = False
@@ -527,22 +598,31 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
                     target_user['student_id'] if target_user else 'Unknown'
                 )
                 dialog.open = False
-                page.snack_bar = ft.SnackBar(content=ft.Text("User deleted successfully", color="#ffffff"), bgcolor="#4CAF50")
+                page.snack_bar = ft.SnackBar(content=ft.Text("User deleted successfully", color="#ffffff"), bgcolor=c["success"])
                 page.snack_bar.open = True
                 load_users()
         
         dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row([
-                ft.Icon(ft.Icons.WARNING, color="#f44336"),
-                ft.Text("Delete User", size=18, weight=ft.FontWeight.W_600, color="#f44336"),
-            ], spacing=8),
-            content=ft.Text(f"Are you sure you want to permanently delete {user_name}? This action cannot be undone.",
-                           color=c["text_secondary"]),
+                ft.Icon(ft.Icons.WARNING, color=c["error"]),
+                ft.Text("Delete User", size=18, weight=ft.FontWeight.W_600, color=c["error"]),
+            ], spacing=8, wrap=True),
+            content=ft.Container(
+                content=ft.Text(
+                    f"Are you sure you want to permanently delete {user_name}? This action cannot be undone.",
+                    color=c["text_secondary"],
+                    size=13,
+                    max_lines=4,
+                    overflow=ft.TextOverflow.ELLIPSIS,
+                ),
+                width=rv["dialog_width"],
+            ),
             actions=[
                 ft.TextButton("Cancel", on_click=close_dialog),
-                ft.ElevatedButton("Delete", bgcolor="#f44336", color="#ffffff", on_click=delete_user),
+                ft.ElevatedButton("Delete", bgcolor=c["error"], color="#ffffff", on_click=delete_user),
             ],
+            actions_alignment=ft.MainAxisAlignment.END,
             bgcolor=c["bg_card"],
             shape=ft.RoundedRectangleBorder(radius=16),
         )
@@ -559,95 +639,127 @@ def AdminPage(page: ft.Page, user: dict, on_navigate=None):
     user_counts = db.get_user_count_by_role()
     total_users = sum(user_counts.values())
     
+    rv = get_responsive()
     # Build UI
-    content = ft.Column([
-        # Header
-        ft.Container(
-            content=ft.Row([
-                ft.IconButton(icon=ft.Icons.ARROW_BACK, icon_color=c["text_primary"], on_click=go_back),
-                ft.Text("User Management", size=20, weight=ft.FontWeight.W_600, color=c["text_primary"]),
-                ft.Container(expand=True),
-                ft.ElevatedButton(
-                    "Add User",
-                    icon=ft.Icons.PERSON_ADD,
-                    bgcolor=c["accent"],
-                    color="#ffffff",
-                    on_click=show_create_user_dialog,
+    content = ft.Column(
+        [
+            # Header (wraps on narrow)
+            ft.Container(
+                content=ft.Row(
+                    [
+                        ft.IconButton(icon=ft.Icons.ARROW_BACK, icon_color=c["text_primary"], on_click=go_back),
+                        ft.Text(
+                            "User Management",
+                            size=18 if rv["header_wrap"] else 20,
+                            weight=ft.FontWeight.W_600,
+                            color=c["text_primary"],
+                        ),
+                        ft.Container(expand=True),
+                        ft.ElevatedButton(
+                            "Add User",
+                            icon=ft.Icons.PERSON_ADD,
+                            bgcolor=c["accent"],
+                            color="#ffffff",
+                            on_click=show_create_user_dialog,
+                        ),
+                    ],
+                    wrap=rv["header_wrap"],
+                    spacing=8,
+                    run_spacing=8,
                 ),
-            ]),
-            padding=ft.padding.symmetric(horizontal=16, vertical=8),
-        ),
-        
-        # Stats cards
-        ft.Container(
-            content=ft.Row([
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text(str(total_users), size=24, weight=ft.FontWeight.W_700, color=c["text_primary"]),
-                        ft.Text("Total Users", size=11, color=c["text_hint"]),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
-                    bgcolor=c["bg_card"],
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text(str(user_counts.get('admin', 0)), size=24, weight=ft.FontWeight.W_700, color="#f44336"),
-                        ft.Text("Admins", size=11, color=c["text_hint"]),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
-                    bgcolor=c["bg_card"],
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text(str(user_counts.get('instructor', 0)), size=24, weight=ft.FontWeight.W_700, color="#2196F3"),
-                        ft.Text("Instructors", size=11, color=c["text_hint"]),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
-                    bgcolor=c["bg_card"],
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        ft.Text(str(user_counts.get('student', 0)), size=24, weight=ft.FontWeight.W_700, color="#4CAF50"),
-                        ft.Text("Students", size=11, color=c["text_hint"]),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2),
-                    bgcolor=c["bg_card"],
-                    padding=16,
-                    border_radius=12,
-                    expand=True,
-                ),
-            ], spacing=8),
-            padding=ft.padding.symmetric(horizontal=16),
-        ),
-        
-        # Search
-        ft.Container(
-            content=ft.TextField(
-                ref=search_field,
-                hint_text="Search users...",
-                prefix_icon=ft.Icons.SEARCH,
-                border_color=c["border"],
-                focused_border_color=c["accent"],
-                text_style=ft.TextStyle(color=c["text_primary"]),
-                hint_style=ft.TextStyle(color=c["text_hint"]),
-                border_radius=10,
-                on_change=lambda e: load_users(),
+                padding=ft.padding.symmetric(horizontal=rv["padding"], vertical=8),
             ),
-            padding=ft.padding.symmetric(horizontal=16, vertical=8),
-        ),
-        
-        # Users list
-        ft.Container(
-            content=ft.Column(ref=users_list, scroll=ft.ScrollMode.AUTO, spacing=8),
-            expand=True,
-            padding=ft.padding.symmetric(horizontal=16),
-        ),
-    ], spacing=8, expand=True)
+            # Stats cards (responsive columns)
+            ft.Container(
+                content=ft.ResponsiveRow(
+                    [
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Text(str(total_users), size=22 if rv["stats_columns"] <= 2 else 24, weight=ft.FontWeight.W_700, color=c["text_primary"]),
+                                    ft.Text("Total Users", size=11, color=c["text_hint"]),
+                                ],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=2,
+                            ),
+                            bgcolor=c["bg_card"],
+                            padding=12 if rv["stats_columns"] <= 2 else 16,
+                            border_radius=12,
+                            col={"xs": 6, "sm": 6, "md": 3, "lg": 3},
+                        ),
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Text(str(user_counts.get('admin', 0)), size=22 if rv["stats_columns"] <= 2 else 24, weight=ft.FontWeight.W_700, color="#f44336"),
+                                    ft.Text("Admins", size=11, color=c["text_hint"]),
+                                ],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=2,
+                            ),
+                            bgcolor=c["bg_card"],
+                            padding=12 if rv["stats_columns"] <= 2 else 16,
+                            border_radius=12,
+                            col={"xs": 6, "sm": 6, "md": 3, "lg": 3},
+                        ),
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Text(str(user_counts.get('instructor', 0)), size=22 if rv["stats_columns"] <= 2 else 24, weight=ft.FontWeight.W_700, color="#2196F3"),
+                                    ft.Text("Instructors", size=11, color=c["text_hint"]),
+                                ],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=2,
+                            ),
+                            bgcolor=c["bg_card"],
+                            padding=12 if rv["stats_columns"] <= 2 else 16,
+                            border_radius=12,
+                            col={"xs": 6, "sm": 6, "md": 3, "lg": 3},
+                        ),
+                        ft.Container(
+                            content=ft.Column(
+                                [
+                                    ft.Text(str(user_counts.get('student', 0)), size=22 if rv["stats_columns"] <= 2 else 24, weight=ft.FontWeight.W_700, color="#4CAF50"),
+                                    ft.Text("Students", size=11, color=c["text_hint"]),
+                                ],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=2,
+                            ),
+                            bgcolor=c["bg_card"],
+                            padding=12 if rv["stats_columns"] <= 2 else 16,
+                            border_radius=12,
+                            col={"xs": 6, "sm": 6, "md": 3, "lg": 3},
+                        ),
+                    ],
+                    spacing=8,
+                    run_spacing=8,
+                ),
+                padding=ft.padding.symmetric(horizontal=rv["padding"]),
+            ),
+            # Search
+            ft.Container(
+                content=ft.TextField(
+                    ref=search_field,
+                    hint_text="Search users...",
+                    prefix_icon=ft.Icons.SEARCH,
+                    border_color=c["border"],
+                    focused_border_color=c["accent"],
+                    text_style=ft.TextStyle(color=c["text_primary"]),
+                    hint_style=ft.TextStyle(color=c["text_hint"]),
+                    border_radius=10,
+                    on_change=lambda e: load_users(),
+                ),
+                padding=ft.padding.symmetric(horizontal=rv["padding"], vertical=8),
+            ),
+            # Users list
+            ft.Container(
+                content=ft.Column(ref=users_list, scroll=ft.ScrollMode.AUTO, spacing=8),
+                expand=True,
+                padding=ft.padding.symmetric(horizontal=rv["padding"]),
+            ),
+        ],
+        spacing=8,
+        expand=True,
+    )
     
     # Load users on init
     page.on_view_pop = lambda e: load_users()

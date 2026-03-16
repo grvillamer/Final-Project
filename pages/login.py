@@ -339,18 +339,26 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
                 margin=ft.margin.only(bottom=20),
             ),
             
-            # CSPC Logo Card
+            # CSS Logo Card
             ft.Container(
                 content=ft.Column([
                     ft.Container(
-                        content=ft.Text("CS", size=38, weight=ft.FontWeight.W_800, color="#ffffff"),
-                        width=90, height=90, bgcolor="#4CAF50", border_radius=20,
+                        content=ft.Image(
+                            src="logo.png",
+                            width=90,
+                            height=90,
+                            fit=ft.ImageFit.CONTAIN,
+                        ),
+                        width=90,
+                        height=90,
+                        border_radius=20,
                         alignment=ft.alignment.center,
+                        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                     ),
-                    ft.Text("CSPC", size=28, weight=ft.FontWeight.W_800, color="#4CAF50"),
+                    ft.Text("CSS", size=28, weight=ft.FontWeight.W_800, color=c["accent"]),
                     ft.Text("Camarines Sur Polytechnic Colleges", size=13, color=c["text_secondary"],
                             text_align=ft.TextAlign.CENTER),
-                    ft.Text("Classroom Management System", size=11, color=c["text_hint"]),
+                    ft.Text("Classroom Management Locator", size=11, color=c["text_hint"]),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
                 bgcolor=c["bg_card"], padding=28, border_radius=16,
             ),

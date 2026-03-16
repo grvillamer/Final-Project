@@ -226,6 +226,22 @@ The test suite includes:
 - Password: `password123`
 - Access: View Rooms, View Schedule
 
+## 👤 About Admin
+
+The **Admin** interface (User Management) is available only to users with the **Administrator** role. Open it from **Settings → Admin Panel → User Management**.
+
+### What admins can do
+- **User list** – View all users (admins, instructors, students) with search by name, student ID, or email
+- **Create users** – Add new users and assign role (Student, Instructor, Administrator); password policy enforced
+- **User details** – View profile, status, last login, failed attempts, and recent activity
+- **Change role** – Change a user’s role (e.g. Student → Instructor, Instructor → Admin)
+- **Account actions** – Enable or disable accounts; unlock locked accounts; reset passwords
+- **Delete users** – Permanently remove users (with confirmation)
+- **Responsive UI** – Admin page and dialogs work on mobile, tablet, and desktop
+
+### Stats on the Admin page
+- Total users, and counts by role (Admins, Instructors, Students) for a quick overview.
+
 ## 📋 User Flows
 
 ### 1. Authentication Flow
