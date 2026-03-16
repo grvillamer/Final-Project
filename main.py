@@ -515,20 +515,12 @@ def main(page: ft.Page):
 
 # Run the app
 if __name__ == "__main__":
-    # The app automatically runs on the appropriate platform:
-    # - Desktop: flet run main.py
-    # - Web: flet run main.py --web (or flet run main.py -w)
-    # - Android: flet run main.py --android
-    # - iOS: flet run main.py --ios
-    # ft.app(
-    #     target=main,
-    #     assets_dir="assets",  # For static assets 
-    #     view=ft.AppView.WEB_BROWSER,       
-    # )
-
-    ft.app(
-        target=main,
-        assets_dir="assets",  # For static assets 
+    # Flet 0.80+ uses ft.run() instead of ft.app()
+    # - Desktop: python main.py
+    # - Web: python main.py (or set view/port as needed)
+    ft.run(
+        main,
+        assets_dir="assets",
         view=ft.AppView.WEB_BROWSER,
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 8080)),
