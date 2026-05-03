@@ -2,6 +2,7 @@
 SpottEd Login Page - CSPC Classroom Management System
 Fully Responsive Layout
 """
+import asyncio
 import flet as ft
 from database import db
 from utils.theme import get_theme
@@ -19,6 +20,7 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
     remember_me = ft.Ref[ft.Checkbox]()
     error_text = ft.Ref[ft.Text]()
     login_btn = ft.Ref[ft.ElevatedButton]()
+    google_btn = ft.Ref[ft.OutlinedButton]()
     
     def show_error(message: str):
         error_text.current.value = message
@@ -67,6 +69,73 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
     def handle_register(e):
         if on_register:
             on_register()
+
+    def _responsive_form_width() -> float:
+        w_win = getattr(getattr(page, "window", None), "width", None)
+        pw = getattr(page, "width", None) or getattr(page, "window_width", None)
+        base = float(w_win or pw or 400)
+        return max(260.0, min(480.0, base - 48.0))
+
+    def _blocked_google_login():
+        """Runs in executor thread — Google browser flow + DB lookup."""
+        from services.google_oauth_service import fetch_google_profile
+        profile = fetch_google_profile()
+        return db.sign_in_with_google(
+            profile.sub,
+            profile.email,
+            profile.given_name,
+            profile.family_name,
+            profile.picture,
+            verified_email=profile.verified_email,
+        )
+
+    async def handle_google_login(_):
+        hide_error()
+        from services.google_oauth_service import (
+            GoogleOAuthConfigurationError,
+            GoogleOAuthFlowError,
+            google_oauth_configured,
+        )
+
+        if not google_oauth_configured():
+            show_error(
+                "Add real GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local "
+                "(see file comments). Placeholders cannot authenticate."
+            )
+            return
+
+        google_btn.current.disabled = True
+        txt = google_btn.current.content.controls[1]
+        if hasattr(txt, "value"):
+            prev = txt.value
+            txt.value = "Opening browser…"
+        else:
+            prev = None
+        page.update()
+
+        try:
+            user = await asyncio.to_thread(_blocked_google_login)
+            if user and on_login:
+                on_login(user)
+            elif not user:
+                show_error(
+                    "Google sign-in could not complete — use a verified Google account "
+                    "or sign in with your CSPC email and password."
+                )
+        except GoogleOAuthConfigurationError as ex:
+            show_error(str(ex))
+        except GoogleOAuthFlowError as ex:
+            show_error(str(ex))
+        except Exception:
+            show_error(
+                "Google sign-in failed. Check credentials, redirect URIs in Google Console, "
+                "and network access, then try again."
+            )
+        finally:
+            google_btn.current.disabled = False
+            if hasattr(txt, "value"):
+                txt.value = prev or "Sign in with Google"
+            page.update()
     
     def show_reset_dialog(e):
         reset_email = ft.Ref[ft.TextField]()
@@ -326,6 +395,27 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
     # Build responsive content
     def build_content():
         c = t()
+        form_w = _responsive_form_width()
+        divider_row = ft.Row(
+            [
+                ft.Container(
+                    expand=True,
+                    content=ft.Divider(color=c["border"], height=1, thickness=1),
+                    alignment=ft.alignment.center,
+                ),
+                ft.Padding(
+                    padding=ft.padding.symmetric(horizontal=10),
+                    content=ft.Text("or", size=12, color=c["text_hint"]),
+                ),
+                ft.Container(
+                    expand=True,
+                    content=ft.Divider(color=c["border"], height=1, thickness=1),
+                    alignment=ft.alignment.center,
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
         return ft.Column([
             # Header
             ft.Container(
@@ -395,6 +485,68 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
             # Login form
             ft.Container(
                 content=ft.Column([
+                    ft.Container(
+                        width=form_w,
+                        content=ft.Row(
+                            [
+                                ft.OutlinedButton(
+                                    ref=google_btn,
+                                    expand=True,
+                                    height=48,
+                                    content=ft.Row(
+                                        [
+                                            ft.Image(
+                                                src="google_g_logo.svg",
+                                                width=20,
+                                                height=20,
+                                                fit=ft.ImageFit.CONTAIN,
+                                            ),
+                                            ft.Text(
+                                                "Sign in with Google",
+                                                size=14,
+                                                weight=ft.FontWeight.W_600,
+                                            ),
+                                        ],
+                                        alignment=ft.MainAxisAlignment.CENTER,
+                                        spacing=12,
+                                        tight=True,
+                                    ),
+                                    style=ft.ButtonStyle(
+                                        color="#3c4043",
+                                        bgcolor={
+                                            ft.ControlState.DEFAULT: "#ffffff",
+                                            ft.ControlState.DISABLED: "#f5f5f5",
+                                            ft.ControlState.HOVERED: "#f8fafc",
+                                        },
+                                        overlay_color={ft.ControlState.HOVERED: "#1f000000"},
+                                        side={
+                                            ft.ControlState.DEFAULT: ft.BorderSide(1, "#dadce0"),
+                                            ft.ControlState.HOVERED: ft.BorderSide(1, "#c6cacf"),
+                                            ft.ControlState.DISABLED: ft.BorderSide(1, "#e8eaed"),
+                                        },
+                                        elevation={ft.ControlState.DEFAULT: 2, ft.ControlState.HOVERED: 5},
+                                        animation_duration=200,
+                                        shape=ft.RoundedRectangleBorder(radius=10),
+                                        padding=ft.padding.symmetric(horizontal=20, vertical=10),
+                                        text_style=ft.TextStyle(weight=ft.FontWeight.W_600),
+                                    ),
+                                    on_click=lambda _: page.run_task(handle_google_login),
+                                ),
+                            ],
+                            spacing=0,
+                            tight=True,
+                        ),
+                    ),
+                    ft.Container(height=10),
+                    divider_row,
+                    ft.Container(height=12),
+                    ft.Text(
+                        "Sign in with your CSPC email",
+                        size=11,
+                        color=c["text_hint"],
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                    ft.Container(height=10),
                     ft.Text("CSPC Email Address", size=12, color=c["text_secondary"]),
                     ft.TextField(
                         ref=email_field, hint_text="your.name@my.cspc.edu.ph",
@@ -423,15 +575,25 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
                                       on_click=show_reset_dialog),
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, wrap=True),
                     ft.Container(height=14),
-                    ft.ElevatedButton(
-                        ref=login_btn,
-                        content=ft.Row([
-                            ft.Icon(ft.Icons.LOGIN, size=20),
-                            ft.Text("Sign In", size=15, weight=ft.FontWeight.W_600),
-                        ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
-                        bgcolor=c["accent"], color="#ffffff", height=50,
-                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
-                        on_click=handle_login,
+                    ft.Container(
+                        width=form_w,
+                        content=ft.Row(
+                            [
+                                ft.ElevatedButton(
+                                    ref=login_btn,
+                                    expand=True,
+                                    content=ft.Row([
+                                        ft.Icon(ft.Icons.LOGIN, size=20),
+                                        ft.Text("Sign In", size=15, weight=ft.FontWeight.W_600),
+                                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=8),
+                                    bgcolor=c["accent"], color="#ffffff", height=50,
+                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10)),
+                                    on_click=handle_login,
+                                ),
+                            ],
+                            spacing=0,
+                            tight=True,
+                        ),
                     ),
                 ], spacing=4),
                 bgcolor=c["bg_card"], padding=20, border_radius=12,
@@ -468,8 +630,8 @@ def LoginPage(page: ft.Page, on_login=None, on_register=None, on_forgot_password
             controls=[
                 ft.Container(
                     content=build_content(),
-                    col={"xs": 12, "sm": 10, "md": 8, "lg": 5, "xl": 4},
-                    padding=ft.padding.symmetric(horizontal=16),
+                    col={"xs": 12, "sm": 11, "md": 7, "lg": 5, "xl": 4},
+                    padding=ft.padding.symmetric(horizontal=16, vertical=10),
                 ),
             ],
             alignment=ft.MainAxisAlignment.CENTER,

@@ -9,9 +9,11 @@ from pathlib import Path
 # Try to load .env file if python-dotenv is available
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent / '.env'
-    if env_path.exists():
-        load_dotenv(env_path)
+    base = Path(__file__).parent
+    for fname in ('.env', '.env.local'):
+        p = base / fname
+        if p.exists():
+            load_dotenv(p, override=(fname == '.env.local'))
 except ImportError:
     pass
 
@@ -43,6 +45,12 @@ class Config:
     
     # Database
     DATABASE_PATH: str = os.getenv('DATABASE_PATH', 'spotted.db')
+
+    # Google OAuth (Sign in with Google) — Desktop / localhost redirect flow
+    GOOGLE_CLIENT_ID: str = os.getenv('GOOGLE_CLIENT_ID', '')
+    GOOGLE_CLIENT_SECRET: str = os.getenv('GOOGLE_CLIENT_SECRET', '')
+    # Port for Google's redirect to http://localhost:{PORT}/ ... must match your OAuth client authorized redirect URIs
+    GOOGLE_OAUTH_REDIRECT_PORT: int = int(os.getenv('GOOGLE_OAUTH_REDIRECT_PORT', '9353'))
     
     # Outbound email (optional, used for password reset codes)
     SMTP_ENABLED: bool = os.getenv('SMTP_ENABLED', 'false').lower() == 'true'

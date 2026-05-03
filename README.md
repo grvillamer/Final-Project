@@ -275,10 +275,27 @@ The **Admin** interface (User Management) is only available to users with the **
 Uses a simple observer pattern for reactive UI updates. Components subscribe to state changes and get notified automatically.
 
 ### Data Persistence
-SQLite database with abstraction layer. Handles initialization, migrations, and graceful error recovery.
+Current implementation uses SQLite for local development and testing.  
+For production and centralized multi-user deployment, the system is being migrated to a client-server database (PostgreSQL recommended) with shared access through the backend service layer.
 
 ### Offline-First Strategy
 Sync queue for operations when offline. Conflict resolution with multiple strategies.
+
+## 🧾 Panel Recommendations and Actions
+
+The panel recommended centralizing the database to improve data consistency, management, and efficiency across the system. They also noted that SQLite is not ideal for networked multi-user deployment.
+
+### Our Response
+- We agree with the recommendation and treat SQLite as a development-stage database.
+- We will transition to a centralized relational database, with PostgreSQL as the primary target.
+- Clients will access data through a service layer to enforce validation, access control, and audit logging consistently.
+
+### Migration Plan
+1. Prepare PostgreSQL schema equivalent to the current SQLite structure.
+2. Create migration scripts to transfer existing records safely.
+3. Move environment-based database configuration to support centralized deployment.
+4. Validate data integrity and run multi-user concurrency tests.
+5. Enable scheduled backups, role-based DB access, and monitoring.
 
 ### Security (Access Control System)
 

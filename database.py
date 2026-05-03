@@ -40,6 +40,7 @@ class Database:
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._create_tables()
+        self._migrate_google_oauth_columns()
         self._create_security_tables()
         self._create_default_admin()
     
@@ -186,6 +187,21 @@ class Database:
         
         # Initialize default classrooms if empty
         self._init_classrooms()
+
+    def _migrate_google_oauth_columns(self):
+        """Add Google account linking columns for OAuth sign-in."""
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA table_info(users)")
+        colnames = {row["name"] for row in cursor.fetchall()}
+        if "google_sub" not in colnames:
+            cursor.execute("ALTER TABLE users ADD COLUMN google_sub TEXT")
+            self.conn.commit()
+
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub
+            ON users(google_sub) WHERE google_sub IS NOT NULL AND length(google_sub) > 0
+        """)
+        self.conn.commit()
     
     def _create_security_tables(self):
         """Create security-related tables"""
@@ -348,6 +364,123 @@ class Database:
             # Failed login
             self._increment_login_attempts(user['id'])
             return None
+
+    def get_user_by_google_sub(self, google_sub: str) -> Optional[Dict]:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE google_sub = ?", (google_sub,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def sign_in_with_google(
+            self,
+            google_sub: str,
+            email: str,
+            first_name: str,
+            last_name: str,
+            profile_image: Optional[str],
+            *,
+            verified_email: bool,
+    ) -> Optional[Dict]:
+        """
+        Resolve or provision a local user row after Google OAuth.
+        Requires a verified Google email.
+        """
+        if not verified_email:
+            return None
+
+        normalized_email = email.strip().lower()
+        google_sub = google_sub.strip()
+        if not google_sub or not normalized_email:
+            return None
+
+        by_sub = self.get_user_by_google_sub(google_sub)
+        if by_sub:
+            if isinstance(profile_image, str) and profile_image.strip():
+                cursor = self.conn.cursor()
+                cursor.execute(
+                    "UPDATE users SET profile_image = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (profile_image.strip(), by_sub["id"]),
+                )
+                self.conn.commit()
+            refreshed = self.get_user(by_sub["id"])
+            return refreshed if refreshed else by_sub
+
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT * FROM users WHERE lower(email) = ?",
+            (normalized_email,),
+        )
+        row = cursor.fetchone()
+        if row:
+            user = dict(row)
+            prof_img = (
+                profile_image.strip()
+                if isinstance(profile_image, str) and profile_image.strip()
+                else user.get("profile_image")
+            )
+            fn_existing = str(user.get("first_name") or "").strip()
+            ln_existing = str(user.get("last_name") or "").strip()
+            gn = first_name.strip() if isinstance(first_name, str) and first_name.strip() else ""
+            gln = last_name.strip() if isinstance(last_name, str) and last_name.strip() else ""
+            fn_final = fn_existing or gn or normalized_email.split("@")[0].title()
+            ln_final = ln_existing or gln or "Account"
+
+            cursor.execute(
+                """
+                UPDATE users SET google_sub = ?, profile_image = ?, first_name = ?,
+                       last_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+                """,
+                (
+                    google_sub,
+                    prof_img,
+                    fn_final,
+                    ln_final,
+                    user["id"],
+                ),
+            )
+            self.conn.commit()
+            refreshed = self.get_user(user["id"])
+            return refreshed if refreshed else user
+
+        local_first = first_name.strip() if first_name else ""
+        local_last = last_name.strip() if last_name else ""
+        if not local_first and not local_last:
+            local = normalized_email.split("@")[0].replace(".", " ").replace("_", " ").strip().title()
+            local_first = local or "Student"
+            local_last = "Account"
+        if not local_first:
+            local_first = normalized_email.split("@")[0].title()
+        if not local_last:
+            local_last = ""
+
+        stable = hashlib.sha256(google_sub.encode()).hexdigest()[:14].upper()
+        student_id = f"GG{stable}"
+        while self.get_user_by_student_id(student_id):
+            student_id = f"GG{hashlib.sha256((google_sub + student_id).encode()).hexdigest()[:14].upper()}"
+
+        passwd = secrets.token_urlsafe(32)
+        new_id = self.create_user(
+            student_id=student_id,
+            email=normalized_email,
+            password=passwd,
+            first_name=local_first or "Student",
+            last_name=local_last if local_last.strip() else "Account",
+            role="student",
+        )
+        if not new_id:
+            return None
+
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "UPDATE users SET google_sub = ?, profile_image = ? WHERE id = ?",
+            (
+                google_sub,
+                profile_image,
+                new_id,
+            ),
+        )
+        self.conn.commit()
+        return self.get_user(new_id)
     
     def _increment_login_attempts(self, user_id: int):
         """Increment failed login attempts"""

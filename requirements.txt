@@ -12,3 +12,8 @@ cryptography==41.0.0
 
 # Database
 # SQLite is built-in, but we use these for better handling
+
+# Google OAuth (Sign in with Google)
+google-auth-oauthlib>=1.2.1
+google-auth>=2.23.4
+requests>=2.31.0
