@@ -64,7 +64,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
 
         return current, semester_labels
     # State
-    view_mode = {"value": "timetable"}  # timetable, list, or qr
+    view_mode = {"value": "timetable"}  # timetable or qr
     semester_current, semester_options = get_current_semester_info()
     current_semester = {"value": semester_current}
     active_qr_session = {"data": None}
@@ -190,7 +190,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         elif view_mode["value"] == "qr":
             content_container.current.content = build_qr_view()
         else:
-            content_container.current.content = build_list_view()
+            content_container.current.content = build_timetable_view()
         page.update()
     
     def toggle_view(mode: str):
@@ -1682,14 +1682,61 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             ], spacing=0),
             *day_columns,
         ], spacing=2, scroll=ft.ScrollMode.AUTO)
-        
-        return ft.Column([
-            legend,
-            ft.Container(
-                content=timetable,
-                expand=True,
-            ),
-        ], expand=True, scroll=ft.ScrollMode.AUTO)
+
+        student_sections = []
+        if is_student:
+            scheduled_classes = [s for s in schedules if not s.get("is_personal")]
+            personal_classes = [s for s in schedules if s.get("is_personal")]
+
+            scheduled_classes.sort(key=lambda x: (x.get("day", ""), x.get("start_time", "")))
+            personal_classes.sort(key=lambda x: (x.get("day", ""), x.get("start_time", "")))
+
+            def _section(title: str, items: list[dict], empty_text: str):
+                return ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=c["text_primary"]),
+                            ft.Container(height=6),
+                            ft.Column(
+                                [build_class_block(item) for item in items[:6]]
+                                if items
+                                else [
+                                    ft.Text(
+                                        empty_text,
+                                        size=11,
+                                        color=c["text_secondary"],
+                                    )
+                                ],
+                                spacing=8,
+                            ),
+                        ],
+                        spacing=0,
+                    ),
+                    bgcolor=c["bg_card"],
+                    padding=12,
+                    border_radius=10,
+                    border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                )
+
+            student_sections = [
+                ft.Container(height=14),
+                _section("Scheduled Classes", scheduled_classes, "No scheduled classes yet."),
+                ft.Container(height=10),
+                _section("My Personal Classes", personal_classes, "No personal classes yet."),
+            ]
+
+        return ft.Column(
+            [
+                legend,
+                ft.Container(
+                    content=timetable,
+                    expand=True,
+                ),
+                *student_sections,
+            ],
+            expand=True,
+            scroll=ft.ScrollMode.AUTO,
+        )
     
     def build_list_view():
         """Build list view of schedules by day"""
@@ -1821,18 +1868,6 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                     ),
                     ft.Container(
                         content=ft.Row([
-                            ft.Icon(ft.Icons.LIST, size=16,
-                                   color=c["accent"] if view_mode["value"] == "list" else c["text_secondary"]),
-                            ft.Text("List", size=11,
-                                   color=c["accent"] if view_mode["value"] == "list" else c["text_secondary"]),
-                        ], spacing=4),
-                        bgcolor=c["accent_bg"] if view_mode["value"] == "list" else "transparent",
-                        padding=ft.padding.symmetric(horizontal=12, vertical=8), border_radius=16,
-                        on_click=lambda e: toggle_view("list"),
-                        ink=True,
-                    ),
-                    ft.Container(
-                        content=ft.Row([
                             ft.Icon(ft.Icons.QR_CODE_SCANNER, size=16,
                                    color=c["accent"] if view_mode["value"] == "qr" else c["text_secondary"]),
                             ft.Text("QR Code", size=11,
@@ -1912,7 +1947,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             # Schedule content
             ft.Container(
                 ref=content_container,
-                content=build_list_view(),  # Start with list view for better mobile experience
+                content=build_timetable_view(),
                 expand=True,
             ),
         ], scroll=ft.ScrollMode.AUTO, spacing=0),
