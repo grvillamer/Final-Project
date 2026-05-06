@@ -21,6 +21,7 @@ from pages.login import LoginPage
 from pages.register import RegisterPage
 from pages.forgot_password import ForgotPasswordPage
 from pages.home import HomePage
+from pages.building_rooms import BuildingRoomsPage
 from pages.activity import ActivityPage
 from pages.schedule import SchedulePage
 from pages.classes import ClassesPage, CreateClassPage, ClassDetailPage
@@ -169,6 +170,16 @@ def main(page: ft.Page):
                 page,
                 user=user,
                 on_navigate=handle_home_navigate,
+            )
+
+        elif route == 'building_rooms':
+            show_nav = False
+            building = (data or {}).get("building") if isinstance(data, dict) else None
+            content = BuildingRoomsPage(
+                page,
+                user=user,
+                building_name=str(building or "Building"),
+                on_back=lambda: navigate_back(),
             )
         
         elif route == 'activity':
@@ -334,6 +345,8 @@ def main(page: ft.Page):
         elif route == 'profile':
             # Open profile from home header avatar
             push_navigation('profile')
+        elif route == 'building_rooms':
+            push_navigation('building_rooms', data)
     
     def handle_classes_navigate(route: str, data=None):
         """Handle navigation from classes page"""
