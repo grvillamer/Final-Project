@@ -107,6 +107,14 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
         )
         page.update()
 
+    def _on_map_click(_):
+        page.snack_bar = ft.SnackBar(
+            content=ft.Text("Map feature coming soon."),
+            bgcolor=c["info"],
+        )
+        page.snack_bar.open = True
+        page.update()
+
     return ft.Container(
         content=ft.Column(
             [
@@ -122,6 +130,17 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
                                         bgcolor=c["accent"],
                                         border_radius=8,
                                         alignment=ft.alignment.center,
+                                    ),
+                                    ft.Container(
+                                        content=ft.Icon(ft.Icons.MAP_OUTLINED, size=16, color=c["accent"]),
+                                        width=30,
+                                        height=30,
+                                        bgcolor=c["accent_bg"],
+                                        border_radius=8,
+                                        alignment=ft.alignment.center,
+                                        on_click=_on_map_click,
+                                        ink=True,
+                                        tooltip="Map (Coming soon)",
                                     ),
                                     ft.Column(
                                         [
