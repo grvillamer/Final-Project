@@ -98,6 +98,11 @@ def main(page: ft.Page):
                     label="Home",
                 ),
                 ft.NavigationBarDestination(
+                    icon=ft.Icons.MAP_OUTLINED,
+                    selected_icon=ft.Icons.MAP,
+                    label="Map",
+                ),
+                ft.NavigationBarDestination(
                     icon=ft.Icons.HISTORY_OUTLINED,
                     selected_icon=ft.Icons.HISTORY,
                     label="Activity",
@@ -124,10 +129,12 @@ def main(page: ft.Page):
         if index == 0:
             navigate_to('home')
         elif index == 1:
-            navigate_to('activity')
+            navigate_to('map')
         elif index == 2:
-            navigate_to('schedule')
+            navigate_to('activity')
         elif index == 3:
+            navigate_to('schedule')
+        elif index == 4:
             navigate_to('settings')
     
     def navigate_to(route: str, data=None):
@@ -170,6 +177,32 @@ def main(page: ft.Page):
                 page,
                 user=user,
                 on_navigate=handle_home_navigate,
+            )
+
+        elif route == 'map':
+            c = get_theme(page)
+            content = ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Container(height=24),
+                        ft.Icon(ft.Icons.MAP, size=72, color=c["accent"]),
+                        ft.Text(
+                            "Campus Map",
+                            size=20,
+                            weight=ft.FontWeight.W_700,
+                            color=c["text_primary"],
+                        ),
+                        ft.Text(
+                            "Map view is coming soon.",
+                            size=13,
+                            color=c["text_secondary"],
+                        ),
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=10,
+                ),
+                alignment=ft.alignment.top_center,
+                expand=True,
             )
 
         elif route == 'building_rooms':
@@ -320,7 +353,7 @@ def main(page: ft.Page):
     def push_navigation(route: str, data=None):
         """Push current route to stack and navigate"""
         # Store current route
-        current_routes = ['home', 'classes', 'attendance', 'analytics', 'settings']
+        current_routes = ['home', 'map', 'activity', 'schedule', 'settings']
         current = current_routes[current_nav_index["index"]]
         navigation_stack.append({'route': current, 'data': None})
         navigate_to(route, data)
@@ -330,17 +363,17 @@ def main(page: ft.Page):
     def handle_home_navigate(route: str, data=None):
         """Handle navigation from home page"""
         if route == 'classes':
-            current_nav_index["index"] = 1
+            current_nav_index["index"] = 2
             navigate_to('classes')
         elif route == 'create_class':
             push_navigation('create_class')
         elif route == 'class_detail':
             push_navigation('class_detail', data)
         elif route == 'attendance':
-            current_nav_index["index"] = 2
+            current_nav_index["index"] = 3
             navigate_to('attendance')
         elif route == 'scan':
-            current_nav_index["index"] = 2
+            current_nav_index["index"] = 3
             navigate_to('attendance')
         elif route == 'profile':
             # Open profile from home header avatar
@@ -399,7 +432,7 @@ def main(page: ft.Page):
             current_nav_index["index"] = 0
             navigate_to('home')
         elif route == 'settings':
-            current_nav_index["index"] = 3
+            current_nav_index["index"] = 4
             navigate_to('settings')
         elif route == 'admin':
             navigate_to('admin')
