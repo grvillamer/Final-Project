@@ -31,11 +31,11 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     profile_picture = db.get_setting(user_id, "profile_picture", "") or None if user_id else None
 
     BUILDINGS = [
-        "ACAD - I",
-        "ACAD - II",
-        "ACAD - III",
-        "ACAD - IV",
-        "ACAD - V",
+        "ACADEMIC BUILDING - I",
+        "ACADEMIC BUILDING - II",
+        "ACADEMIC BUILDING - III",
+        "ACADEMIC BUILDING - IV",
+        "ACADEMIC BUILDING - V",
         "GREEN BUILDING",
     ]
 
