@@ -87,7 +87,6 @@ def BuildingRoomsPage(
         )
 
     def _room_tile(idx: int, room: dict):
-        number = f"{idx + 1}."
         title = room.get("name") or "Room"
         code = room.get("code") or ""
         floor = room.get("floor") or ""
@@ -96,11 +95,6 @@ def BuildingRoomsPage(
         return ft.Container(
             content=ft.Row(
                 [
-                    ft.Container(
-                        content=ft.Text(number, size=12, color=c["text_hint"], weight=ft.FontWeight.W_600),
-                        width=28,
-                        alignment=ft.alignment.center_left,
-                    ),
                     ft.Container(
                         content=ft.Icon(ft.Icons.MEETING_ROOM, size=18, color=c["accent"]),
                         width=34,

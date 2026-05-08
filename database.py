@@ -1306,14 +1306,20 @@ class Database:
     # ==================== CLASSROOM OPERATIONS ====================
     
     def _init_classrooms(self):
-        """Initialize default classrooms for CCS Building"""
+        """Initialize default classrooms for CCS Building and Academic Building IV"""
         cursor = self.conn.cursor()
         cursor.execute('SELECT COUNT(*) as count FROM classrooms')
-        if cursor.fetchone()['count'] > 0:
-            return
+        total_count = cursor.fetchone()['count']
+        
+        # Check if Academic Building IV classrooms already exist
+        cursor.execute("SELECT COUNT(*) as count FROM classrooms WHERE building = 'ACADEMIC BUILDING - IV'")
+        ab4_count = cursor.fetchone()['count']
+        
+        if total_count > 0 and ab4_count > 0:
+            return  # All classrooms already initialized
         
         # CCS Building Classrooms - Actual Layout
-        classrooms = [
+        ccs_classrooms = [
             # Ground Floor (1st) - Lecture Rooms
             ("Lecture Room 1", "LR-101", "CCS Building", "1st", 40),
             ("Lecture Room 2", "LR-102", "CCS Building", "1st", 40),
@@ -1342,11 +1348,49 @@ class Database:
             ("NAS Lab", "NAS-404", "CCS Building", "4th", 35),
         ]
         
-        for name, code, building, floor, capacity in classrooms:
-            cursor.execute('''
-                INSERT INTO classrooms (name, code, building, floor, capacity)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (name, code, building, floor, capacity))
+        # Academic Building IV Classrooms
+        ab4_classrooms = [
+            # Ground Floor (1st) - Lecture Rooms
+            ("Lecture Room 1", "AB4-LR-101", "ACADEMIC BUILDING - IV", "1st", 40),
+            ("Lecture Room 2", "AB4-LR-102", "ACADEMIC BUILDING - IV", "1st", 40),
+            ("Lecture Room 3", "AB4-LR-103", "ACADEMIC BUILDING - IV", "1st", 40),
+            ("Lecture Room 4", "AB4-LR-104", "ACADEMIC BUILDING - IV", "1st", 40),
+            ("Lecture Room 5", "AB4-LR-105", "ACADEMIC BUILDING - IV", "1st", 40),
+            ("Lecture Room 6", "AB4-LR-106", "ACADEMIC BUILDING - IV", "1st", 40),
+            
+            # 2nd Floor
+            ("Mac Lab", "AB4-MAC-201", "ACADEMIC BUILDING - IV", "2nd", 30),
+            ("Open Lab", "AB4-OPEN-202", "ACADEMIC BUILDING - IV", "2nd", 50),
+            ("Dean's Office", "AB4-DEAN-203", "ACADEMIC BUILDING - IV", "2nd", 10),
+            ("Faculty Room", "AB4-FAC-204", "ACADEMIC BUILDING - IV", "2nd", 20),
+            
+            # 3rd Floor
+            ("IT Lab 1", "AB4-IT1-301", "ACADEMIC BUILDING - IV", "3rd", 40),
+            ("IT Lab 2", "AB4-IT2-302", "ACADEMIC BUILDING - IV", "3rd", 40),
+            ("ERP Lab", "AB4-ERP-303", "ACADEMIC BUILDING - IV", "3rd", 35),
+            ("CS Lab", "AB4-CS-304", "ACADEMIC BUILDING - IV", "3rd", 40),
+            
+            # 4th Floor
+            ("LIS Lab", "AB4-LIS-401", "ACADEMIC BUILDING - IV", "4th", 35),
+            ("NAS Lab", "AB4-NAS-402", "ACADEMIC BUILDING - IV", "4th", 35),
+            ("RISE Lab", "AB4-RISE-403", "ACADEMIC BUILDING - IV", "4th", 35),
+        ]
+        
+        # Insert CCS classrooms if not already present
+        if total_count == 0:
+            for name, code, building, floor, capacity in ccs_classrooms:
+                cursor.execute('''
+                    INSERT INTO classrooms (name, code, building, floor, capacity)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (name, code, building, floor, capacity))
+        
+        # Insert Academic Building IV classrooms if not already present
+        if ab4_count == 0:
+            for name, code, building, floor, capacity in ab4_classrooms:
+                cursor.execute('''
+                    INSERT INTO classrooms (name, code, building, floor, capacity)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (name, code, building, floor, capacity))
         
         self.conn.commit()
     
