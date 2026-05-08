@@ -22,6 +22,7 @@ from pages.register import RegisterPage
 from pages.forgot_password import ForgotPasswordPage
 from pages.home import HomePage
 from pages.building_rooms import BuildingRoomsPage
+from pages.map import MapPage
 from pages.activity import ActivityPage
 from pages.schedule import SchedulePage
 from pages.classes import ClassesPage, CreateClassPage, ClassDetailPage
@@ -180,29 +181,10 @@ def main(page: ft.Page):
             )
 
         elif route == 'map':
-            c = get_theme(page)
-            content = ft.Container(
-                content=ft.Column(
-                    [
-                        ft.Container(height=24),
-                        ft.Icon(ft.Icons.MAP, size=72, color=c["accent"]),
-                        ft.Text(
-                            "Campus Map",
-                            size=20,
-                            weight=ft.FontWeight.W_700,
-                            color=c["text_primary"],
-                        ),
-                        ft.Text(
-                            "Map view is coming soon.",
-                            size=13,
-                            color=c["text_secondary"],
-                        ),
-                    ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=10,
-                ),
-                alignment=ft.alignment.top_center,
-                expand=True,
+            content = MapPage(
+                page,
+                user=user,
+                on_navigate=handle_home_navigate,
             )
 
         elif route == 'building_rooms':
