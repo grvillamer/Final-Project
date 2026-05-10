@@ -13,7 +13,7 @@ from config import config
 
 
 def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
-    """Schedule page showing student's personal class timetable with QR Code attendance"""
+    """Schedule page showing semester class timetable with QR Code attendance"""
     
     def t():
         return get_theme(page)
@@ -22,22 +22,8 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     
     user_id = user.get('id')
     user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}"
+    is_instructor = user.get('role') == 'instructor'
     is_student = user.get('role') == 'student'
-    
-    # For non-students, show a message instead
-    if not is_student:
-        return ft.Container(
-            content=ft.Column([
-                ft.Icon(ft.Icons.SCHOOL, size=64, color=c["text_hint"]),
-                ft.Text("Schedule", size=18, weight=ft.FontWeight.W_600, color=c["text_primary"]),
-                ft.Text("This page is available for students only.", size=14, color=c["text_secondary"]),
-                ft.Text("As an instructor, manage your classes from the Home page.", size=12, color=c["text_hint"]),
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=12),
-            alignment=ft.alignment.center,
-            bgcolor=c["bg_primary"],
-            expand=True,
-            padding=20,
-        )
 
     def get_current_semester_info():
         """
@@ -541,12 +527,110 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         page.update()
     
     def build_qr_view():
-        """Build QR code view for attendance (Student Only)"""
+        """Build QR code view for attendance"""
         c = t()
         
-        # Student view - Scan/Enter QR code
-        # Get recent attendance history
-        history = db.get_student_attendance_history(user_id)[:5]
+        if is_instructor:
+            # Instructor view - Generate QR for scheduled classes
+            schedules = get_instructor_schedules()
+            today = datetime.now()
+            today_name = today.strftime("%A")
+            
+            # Filter today's schedules
+            todays_schedules = []
+            for sched in schedules:
+                notes = sched.get('notes', '')
+                day = sched.get('day', '')
+                if 'Day:' in notes:
+                    try:
+                        day = notes.split('Day:')[1].split('|')[0].strip()
+                    except:
+                        pass
+                if day == today_name or sched.get('schedule_date') == today.strftime("%Y-%m-%d"):
+                    todays_schedules.append(sched)
+            
+            if not todays_schedules and schedules:
+                todays_schedules = schedules[:3]  # Show first 3 if no today's classes
+            
+            return ft.Column([
+                # Header
+                ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.Icons.QR_CODE_2, size=48, color=c["accent"]),
+                        ft.Text("Generate Attendance QR", size=18, weight=ft.FontWeight.W_600, 
+                               color=c["text_primary"]),
+                        ft.Text("Select a class to generate attendance QR code", 
+                               size=12, color=c["text_secondary"]),
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                    padding=20,
+                ),
+                
+                # Info card
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=c["info"]),
+                        ft.Column([
+                            ft.Text("QR codes expire after 10 minutes (FR-002)", 
+                                   size=11, color=c["text_secondary"]),
+                            ft.Text("Students can scan or enter the code manually", 
+                                   size=11, color=c["text_hint"]),
+                        ], spacing=2, expand=True),
+                    ], spacing=8),
+                    bgcolor=c["bg_card"], padding=12, border_radius=8,
+                    border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                ),
+                
+                ft.Container(height=16),
+                
+                # Class list for QR generation
+                ft.Text("Your Classes", size=14, weight=ft.FontWeight.W_600, color=c["text_primary"]),
+                ft.Container(height=8),
+                
+                ft.Column([
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Container(
+                                content=ft.Icon(ft.Icons.CLASS_, size=24, color="#ffffff"),
+                                width=44, height=44, bgcolor=c["accent"], border_radius=10,
+                                alignment=ft.alignment.center,
+                            ),
+                            ft.Column([
+                                ft.Text(sched.get('subject_name', 'Class'), size=14, 
+                                       weight=ft.FontWeight.W_600, color=c["text_primary"]),
+                                ft.Text(f"{sched.get('start_time', '')} - {sched.get('end_time', '')}", 
+                                       size=11, color=c["text_secondary"]),
+                                ft.Text(sched.get('room_name', ''), size=10, color=c["text_hint"]),
+                            ], spacing=2, expand=True),
+                            ft.ElevatedButton(
+                                content=ft.Row([
+                                    ft.Icon(ft.Icons.QR_CODE, size=16),
+                                    ft.Text("Generate", size=12),
+                                ], spacing=4),
+                                bgcolor=c["accent"],
+                                color="#ffffff",
+                                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+                                on_click=lambda e, s=sched: generate_attendance_qr(s),
+                            ),
+                        ], spacing=12),
+                        bgcolor=c["bg_card"], padding=14, border_radius=12,
+                        border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                    )
+                    for sched in (todays_schedules if todays_schedules else schedules[:5])
+                ] if schedules else [
+                    ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.EVENT_BUSY, size=48, color=c["text_hint"]),
+                            ft.Text("No classes scheduled", size=14, color=c["text_secondary"]),
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
+                        padding=40,
+                    )
+                ], spacing=10),
+            ], spacing=8, scroll=ft.ScrollMode.AUTO)
+        
+        else:
+            # Student view - Scan/Enter QR code
+            # Get recent attendance history
+            history = db.get_student_attendance_history(user_id)[:5]
 
             def show_camera_scanner_dialog(e=None):
                 """Show a responsive camera preview for scanning QR codes."""
@@ -1392,8 +1476,8 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     
     def build_timetable_view():
         c = t()
-        # Always show student's own classes (students only page now)
-        schedules = get_student_schedules()
+        # For students, show only their own classes; otherwise show all room schedules
+        schedules = get_student_schedules() if is_student else get_all_class_schedules()
         
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
         
@@ -1654,10 +1738,17 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         )
     
     def build_list_view():
-        """Build list view of schedules by day (Student view)"""
+        """Build list view of schedules by day"""
         c = t()
-        # Students only - show their enrolled classes
-        schedules = get_student_schedules()
+        if is_student:
+            # Student: only their own classes
+            schedules = get_student_schedules()
+        elif is_instructor:
+            # Instructor: their own room schedules
+            schedules = get_instructor_schedules()
+        else:
+            # Fallback: all room schedules
+            schedules = get_all_class_schedules()
         
         if not schedules:
             return ft.Container(
