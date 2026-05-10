@@ -13,7 +13,7 @@ from config import config
 
 
 def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
-    """Schedule page showing semester class timetable with QR Code attendance"""
+    """Schedule page showing student's personal class timetable with QR Code attendance"""
     
     def t():
         return get_theme(page)
@@ -22,8 +22,22 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     
     user_id = user.get('id')
     user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}"
-    is_instructor = user.get('role') == 'instructor'
     is_student = user.get('role') == 'student'
+    
+    # For non-students, show a message instead
+    if not is_student:
+        return ft.Container(
+            content=ft.Column([
+                ft.Icon(ft.Icons.SCHOOL, size=64, color=c["text_hint"]),
+                ft.Text("Schedule", size=18, weight=ft.FontWeight.W_600, color=c["text_primary"]),
+                ft.Text("This page is available for students only.", size=14, color=c["text_secondary"]),
+                ft.Text("As an instructor, manage your classes from the Home page.", size=12, color=c["text_hint"]),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=12),
+            alignment=ft.alignment.center,
+            bgcolor=c["bg_primary"],
+            expand=True,
+            padding=20,
+        )
 
     def get_current_semester_info():
         """
@@ -63,17 +77,10 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             current = semester_labels[2]  # summer
 
         return current, semester_labels
-    # State
-    view_mode = {"value": "timetable"}  # timetable or qr
-    semester_current, semester_options = get_current_semester_info()
-    current_semester = {"value": semester_current}
-    active_qr_session = {"data": None}
-    qr_timer = {"remaining": 0, "running": False}
-
     # ==================== PERSONAL STUDENT SCHEDULE ====================
     def load_personal_schedule():
         """Load student's personal schedule from settings (stored as JSON)."""
-        if not is_student or not user_id:
+        if not user_id:
             return []
         try:
             raw = db.get_setting(user_id, "personal_schedule", "[]")
@@ -87,12 +94,19 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
 
     def save_personal_schedule():
         """Persist student's personal schedule to settings."""
-        if not is_student or not user_id:
+        if not user_id:
             return
         try:
             db.set_setting(user_id, "personal_schedule", json.dumps(personal_schedule["items"]))
         except Exception:
             pass
+    
+    # State
+    view_mode = {"value": "timetable"}  # timetable or qr
+    semester_current, semester_options = get_current_semester_info()
+    current_semester = {"value": semester_current}
+    active_qr_session = {"data": None}
+    qr_timer = {"remaining": 0, "running": False}
     
     # Refs
     content_container = ft.Ref[ft.Container]()
@@ -527,110 +541,12 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         page.update()
     
     def build_qr_view():
-        """Build QR code view for attendance"""
+        """Build QR code view for attendance (Student Only)"""
         c = t()
         
-        if is_instructor:
-            # Instructor view - Generate QR for scheduled classes
-            schedules = get_instructor_schedules()
-            today = datetime.now()
-            today_name = today.strftime("%A")
-            
-            # Filter today's schedules
-            todays_schedules = []
-            for sched in schedules:
-                notes = sched.get('notes', '')
-                day = sched.get('day', '')
-                if 'Day:' in notes:
-                    try:
-                        day = notes.split('Day:')[1].split('|')[0].strip()
-                    except:
-                        pass
-                if day == today_name or sched.get('schedule_date') == today.strftime("%Y-%m-%d"):
-                    todays_schedules.append(sched)
-            
-            if not todays_schedules and schedules:
-                todays_schedules = schedules[:3]  # Show first 3 if no today's classes
-            
-            return ft.Column([
-                # Header
-                ft.Container(
-                    content=ft.Column([
-                        ft.Icon(ft.Icons.QR_CODE_2, size=48, color=c["accent"]),
-                        ft.Text("Generate Attendance QR", size=18, weight=ft.FontWeight.W_600, 
-                               color=c["text_primary"]),
-                        ft.Text("Select a class to generate attendance QR code", 
-                               size=12, color=c["text_secondary"]),
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                    padding=20,
-                ),
-                
-                # Info card
-                ft.Container(
-                    content=ft.Row([
-                        ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=c["info"]),
-                        ft.Column([
-                            ft.Text("QR codes expire after 10 minutes (FR-002)", 
-                                   size=11, color=c["text_secondary"]),
-                            ft.Text("Students can scan or enter the code manually", 
-                                   size=11, color=c["text_hint"]),
-                        ], spacing=2, expand=True),
-                    ], spacing=8),
-                    bgcolor=c["bg_card"], padding=12, border_radius=8,
-                    border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
-                ),
-                
-                ft.Container(height=16),
-                
-                # Class list for QR generation
-                ft.Text("Your Classes", size=14, weight=ft.FontWeight.W_600, color=c["text_primary"]),
-                ft.Container(height=8),
-                
-                ft.Column([
-                    ft.Container(
-                        content=ft.Row([
-                            ft.Container(
-                                content=ft.Icon(ft.Icons.CLASS_, size=24, color="#ffffff"),
-                                width=44, height=44, bgcolor=c["accent"], border_radius=10,
-                                alignment=ft.alignment.center,
-                            ),
-                            ft.Column([
-                                ft.Text(sched.get('subject_name', 'Class'), size=14, 
-                                       weight=ft.FontWeight.W_600, color=c["text_primary"]),
-                                ft.Text(f"{sched.get('start_time', '')} - {sched.get('end_time', '')}", 
-                                       size=11, color=c["text_secondary"]),
-                                ft.Text(sched.get('room_name', ''), size=10, color=c["text_hint"]),
-                            ], spacing=2, expand=True),
-                            ft.ElevatedButton(
-                                content=ft.Row([
-                                    ft.Icon(ft.Icons.QR_CODE, size=16),
-                                    ft.Text("Generate", size=12),
-                                ], spacing=4),
-                                bgcolor=c["accent"],
-                                color="#ffffff",
-                                style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                                on_click=lambda e, s=sched: generate_attendance_qr(s),
-                            ),
-                        ], spacing=12),
-                        bgcolor=c["bg_card"], padding=14, border_radius=12,
-                        border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
-                    )
-                    for sched in (todays_schedules if todays_schedules else schedules[:5])
-                ] if schedules else [
-                    ft.Container(
-                        content=ft.Column([
-                            ft.Icon(ft.Icons.EVENT_BUSY, size=48, color=c["text_hint"]),
-                            ft.Text("No classes scheduled", size=14, color=c["text_secondary"]),
-                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
-                        padding=40,
-                    )
-                ], spacing=10),
-            ], spacing=8, scroll=ft.ScrollMode.AUTO)
-        
-        else:
-            # Student view - Scan/Enter QR code
-            # Get recent attendance history
-            history = db.get_student_attendance_history(user_id)[:5]
+        # Student view - Scan/Enter QR code
+        # Get recent attendance history
+        history = db.get_student_attendance_history(user_id)[:5]
 
             def show_camera_scanner_dialog(e=None):
                 """Show a responsive camera preview for scanning QR codes."""
@@ -1476,8 +1392,8 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     
     def build_timetable_view():
         c = t()
-        # For students, show only their own classes; otherwise show all room schedules
-        schedules = get_student_schedules() if is_student else get_all_class_schedules()
+        # Always show student's own classes (students only page now)
+        schedules = get_student_schedules()
         
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
         
@@ -1683,47 +1599,46 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             *day_columns,
         ], spacing=2, scroll=ft.ScrollMode.AUTO)
 
-        student_sections = []
-        if is_student:
-            scheduled_classes = [s for s in schedules if not s.get("is_personal")]
-            personal_classes = [s for s in schedules if s.get("is_personal")]
+        # Student sections - always show since this is student-only page
+        scheduled_classes = [s for s in schedules if not s.get("is_personal")]
+        personal_classes = [s for s in schedules if s.get("is_personal")]
 
-            scheduled_classes.sort(key=lambda x: (x.get("day", ""), x.get("start_time", "")))
-            personal_classes.sort(key=lambda x: (x.get("day", ""), x.get("start_time", "")))
+        scheduled_classes.sort(key=lambda x: (x.get("day", ""), x.get("start_time", "")))
+        personal_classes.sort(key=lambda x: (x.get("day", ""), x.get("start_time", "")))
 
-            def _section(title: str, items: list[dict], empty_text: str):
-                return ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=c["text_primary"]),
-                            ft.Container(height=6),
-                            ft.Column(
-                                [build_class_block(item) for item in items[:6]]
-                                if items
-                                else [
-                                    ft.Text(
-                                        empty_text,
-                                        size=11,
-                                        color=c["text_secondary"],
-                                    )
-                                ],
-                                spacing=8,
-                            ),
-                        ],
-                        spacing=0,
-                    ),
-                    bgcolor=c["bg_card"],
-                    padding=12,
-                    border_radius=10,
-                    border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
-                )
+        def _section(title: str, items: list[dict], empty_text: str):
+            return ft.Container(
+                content=ft.Column(
+                    [
+                        ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=c["text_primary"]),
+                        ft.Container(height=6),
+                        ft.Column(
+                            [build_class_block(item) for item in items[:6]]
+                            if items
+                            else [
+                                ft.Text(
+                                    empty_text,
+                                    size=11,
+                                    color=c["text_secondary"],
+                                )
+                            ],
+                            spacing=8,
+                        ),
+                    ],
+                    spacing=0,
+                ),
+                bgcolor=c["bg_card"],
+                padding=12,
+                border_radius=10,
+                border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+            )
 
-            student_sections = [
-                ft.Container(height=14),
-                _section("Scheduled Classes", scheduled_classes, "No scheduled classes yet."),
-                ft.Container(height=10),
-                _section("My Personal Classes", personal_classes, "No personal classes yet."),
-            ]
+        student_sections = [
+            ft.Container(height=14),
+            _section("Scheduled Classes", scheduled_classes, "No scheduled classes yet."),
+            ft.Container(height=10),
+            _section("My Personal Classes", personal_classes, "No personal classes yet."),
+        ]
 
         return ft.Column(
             [
@@ -1739,17 +1654,10 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         )
     
     def build_list_view():
-        """Build list view of schedules by day"""
+        """Build list view of schedules by day (Student view)"""
         c = t()
-        if is_student:
-            # Student: only their own classes
-            schedules = get_student_schedules()
-        elif is_instructor:
-            # Instructor: their own room schedules
-            schedules = get_instructor_schedules()
-        else:
-            # Fallback: all room schedules
-            schedules = get_all_class_schedules()
+        # Students only - show their enrolled classes
+        schedules = get_student_schedules()
         
         if not schedules:
             return ft.Container(
@@ -1815,50 +1723,24 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             # Header
             ft.Container(
                 content=ft.Row([
-                    ft.Row([
-                        ft.Container(
-                            content=ft.Text("CS", size=14, weight=ft.FontWeight.W_700, color="#ffffff"),
-                            width=36, height=36, bgcolor=c["accent"], border_radius=8,
-                            alignment=ft.alignment.center,
-                        ),
-                        ft.Column([
-                            ft.Text("Class Schedule", size=16, weight=ft.FontWeight.W_700, color=c["text_primary"]),
-                            ft.Text(current_semester["value"], size=11, color=c["text_secondary"]),
-                        ], spacing=0),
-                    ], spacing=10),
+                    ft.Column([
+                        ft.Text("Class Schedule", size=18, weight=ft.FontWeight.W_700, color=c["text_primary"]),
+                        ft.Text(f"Welcome, {user_name}", size=12, color=c["text_secondary"]),
+                    ], spacing=2),
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ),
-            
-            ft.Container(height=16),
-            
-            # Semester selector
-            ft.Container(
-                content=ft.Row([
-                    ft.Icon(ft.Icons.SCHOOL, size=16, color=c["accent"]),
-                                        ft.Dropdown(
-                        value=current_semester["value"],
-                        options=[ft.dropdown.Option(opt) for opt in semester_options],
-                        border_color="transparent",
-                        text_style=ft.TextStyle(color=c["text_primary"], size=12, weight=ft.FontWeight.W_500),
-                        content_padding=ft.padding.symmetric(horizontal=8),
-                        on_change=lambda e: current_semester.__setitem__("value", e.control.value),
-                    ),
-                ], spacing=8),
-                bgcolor=c["bg_card"], padding=ft.padding.symmetric(horizontal=12, vertical=4),
-                border_radius=8,
-                border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                padding=ft.padding.symmetric(horizontal=0, vertical=8),
             ),
             
             ft.Container(height=12),
             
-            # View toggle
+            # View toggle - Timetable and QR
             ft.Container(
                 content=ft.Row([
                     ft.Container(
                         content=ft.Row([
                             ft.Icon(ft.Icons.GRID_VIEW, size=16, 
                                    color=c["accent"] if view_mode["value"] == "timetable" else c["text_secondary"]),
-                            ft.Text("Timetable", size=11, 
+                            ft.Text("My Schedule", size=11, 
                                    color=c["accent"] if view_mode["value"] == "timetable" else c["text_secondary"]),
                         ], spacing=4),
                         bgcolor=c["accent_bg"] if view_mode["value"] == "timetable" else "transparent",
@@ -1870,7 +1752,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                         content=ft.Row([
                             ft.Icon(ft.Icons.QR_CODE_SCANNER, size=16,
                                    color=c["accent"] if view_mode["value"] == "qr" else c["text_secondary"]),
-                            ft.Text("QR Code", size=11,
+                            ft.Text("Attendance", size=11,
                                    color=c["accent"] if view_mode["value"] == "qr" else c["text_secondary"]),
                         ], spacing=4),
                         bgcolor=c["accent_bg"] if view_mode["value"] == "qr" else "transparent",
@@ -1885,7 +1767,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             
             ft.Container(height=16),
 
-            # Personal schedule helper for students
+            # Personal schedule helper
             ft.Container(
                 content=ft.Row(
                     [
@@ -1899,7 +1781,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                                     color=c["text_primary"],
                                 ),
                                 ft.Text(
-                                    "Add your own study blocks or non-official classes. Only you can see these.",
+                                    "Add study blocks or non-official classes (private).",
                                     size=10,
                                     color=c["text_secondary"],
                                 ),
@@ -1911,7 +1793,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                             content=ft.Row(
                                 [
                                     ft.Icon(ft.Icons.ADD, size=16),
-                                    ft.Text("Add personal class", size=11),
+                                    ft.Text("Add", size=11),
                                 ],
                                 spacing=4,
                             ),
@@ -1925,24 +1807,9 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                 padding=12,
                 border_radius=8,
                 border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
-                visible=is_student,
             ),
             
-            # Info card for instructors
-            ft.Container(
-                content=ft.Row([
-                    ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=c["info"]),
-                    ft.Text(
-                        "To set up a class, go to Home → Select an available room → Set Class",
-                        size=11, color=c["text_secondary"], expand=True,
-                    ),
-                ], spacing=8),
-                bgcolor=c["bg_card"], padding=12, border_radius=8,
-                border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
-                visible=is_instructor,
-            ),
-            
-            ft.Container(height=8) if is_instructor else ft.Container(),
+            ft.Container(height=8),
             
             # Schedule content
             ft.Container(
