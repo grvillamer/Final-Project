@@ -13,7 +13,7 @@ from config import config
 
 
 def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
-    """Schedule page showing semester class timetable with QR Code attendance"""
+    """Schedule page - Student-only personal schedule management"""
     
     def t():
         return get_theme(page)
@@ -24,6 +24,32 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
     user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}"
     is_instructor = user.get('role') == 'instructor'
     is_student = user.get('role') == 'student'
+    
+    # ==================== ROLE CHECK: STUDENTS ONLY ====================
+    # This page is for students only to manage their personal schedule
+    if not is_student:
+        return ft.Container(
+            content=ft.Column([
+                ft.Container(height=40),
+                ft.Icon(ft.Icons.LOCK, size=64, color=c["text_hint"]),
+                ft.Text("Access Restricted", size=20, weight=ft.FontWeight.W_700, color=c["text_primary"]),
+                ft.Container(height=16),
+                ft.Text("This page is for students only.", size=14, color=c["text_secondary"]),
+                ft.Text("Students can view their enrolled classes and manage personal schedules.", size=12, color=c["text_hint"]),
+                ft.Container(height=40),
+                ft.ElevatedButton(
+                    "Back to Home",
+                    icon=ft.Icons.HOME,
+                    bgcolor=c["accent"],
+                    color="#ffffff",
+                    on_click=lambda e: on_navigate('home') if on_navigate else None,
+                ),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=0),
+            alignment=ft.alignment.center,
+            bgcolor=c["bg_primary"],
+            expand=True,
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+        )
 
     def get_current_semester_info():
         """
@@ -87,18 +113,29 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         except Exception:
             pass
     
-    # State
+    # State (timetable view only - no QR for students)
     view_mode = {"value": "timetable"}  # timetable or qr
     semester_current, semester_options = get_current_semester_info()
     current_semester = {"value": semester_current}
-    active_qr_session = {"data": None}
-    qr_timer = {"remaining": 0, "running": False}
     
     # Refs
     content_container = ft.Ref[ft.Container]()
-    qr_code_display = ft.Ref[ft.Text]()
-    timer_display = ft.Ref[ft.Text]()
     attendance_code_field = ft.Ref[ft.TextField]()
+    
+    def update_content():
+        """Update content based on selected view mode"""
+        if view_mode["value"] == "timetable":
+            content_container.current.content = build_timetable_view()
+        elif view_mode["value"] == "qr":
+            content_container.current.content = build_qr_view()
+        else:
+            content_container.current.content = build_timetable_view()
+        page.update()
+    
+    def toggle_view(mode: str):
+        """Toggle between timetable and QR view"""
+        view_mode["value"] = mode
+        update_content()
     
     def get_all_class_schedules():
         """Get all class schedules grouped by day"""
@@ -174,32 +211,10 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                     "personal_index": idx,
                 }
             )
-
+        
         return student_schedules
     
     def get_instructor_schedules():
-        """Get schedules for the current instructor"""
-        if not is_instructor:
-            return []
-        return db.get_instructor_schedules(user_id)
-    
-    def update_content():
-        c = t()
-        if view_mode["value"] == "timetable":
-            content_container.current.content = build_timetable_view()
-        elif view_mode["value"] == "qr":
-            content_container.current.content = build_qr_view()
-        else:
-            content_container.current.content = build_timetable_view()
-        page.update()
-    
-    def toggle_view(mode: str):
-        view_mode["value"] = mode
-        update_content()
-    
-    # ==================== QR CODE FUNCTIONS (FR-002, FR-003) ====================
-    
-    def _send_qr_email_to_students(class_id: int, qr_code: str, schedule: dict) -> bool:
         """
         Send the QR / attendance code to all enrolled students via email.
         Returns True if at least one email was successfully queued/sent.
@@ -1474,6 +1489,185 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         except Exception:
             return 0
     
+    # ==================== ATTENDANCE CODE SUBMISSION (FR-003: Student) ====================
+    
+    def submit_attendance_code(e=None, code_value: str | None = None):
+        """Submit attendance code - students can enter or scan QR codes"""
+        c = t()
+        
+        if code_value is not None:
+            code = code_value.strip()
+        else:
+            if not attendance_code_field.current:
+                return
+            code = attendance_code_field.current.value.strip()
+        
+        if not code:
+            page.snack_bar = ft.SnackBar(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.WARNING, color="#ffffff", size=18),
+                    ft.Text("Please enter an attendance code", color="#ffffff"),
+                ], spacing=8),
+                bgcolor=c["warning"],
+            )
+            page.snack_bar.open = True
+            page.update()
+            return
+        
+        # Find session by QR code
+        session = db.get_session_by_qr(code)
+        
+        if not session:
+            page.snack_bar = ft.SnackBar(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.ERROR, color="#ffffff", size=18),
+                    ft.Text("Invalid or expired attendance code", color="#ffffff"),
+                ], spacing=8),
+                bgcolor=c["error"],
+            )
+            page.snack_bar.open = True
+            page.update()
+            return
+        
+        # Check if student is enrolled in the class
+        cls = db.get_class(session['class_id'])
+        enrolled_classes = db.get_enrolled_classes(user_id)
+        is_enrolled = any(c['id'] == session['class_id'] for c in enrolled_classes)
+        
+        # Mark attendance
+        success = db.mark_attendance(session['id'], user_id, 'present')
+        
+        if success:
+            page.snack_bar = ft.SnackBar(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
+                    ft.Text(f"Attendance marked for {cls['name'] if cls else 'class'}!", color="#ffffff"),
+                ], spacing=8),
+                bgcolor=c["success"],
+            )
+            if attendance_code_field.current:
+                attendance_code_field.current.value = ""
+        else:
+            page.snack_bar = ft.SnackBar(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.INFO, color="#ffffff", size=18),
+                    ft.Text("Attendance already marked", color="#ffffff"),
+                ], spacing=8),
+                bgcolor=c["info"],
+            )
+        
+        page.snack_bar.open = True
+        page.update()
+    
+    # ==================== QR ATTENDANCE VIEW (Student) ====================
+    
+    def build_qr_view():
+        """Build QR code attendance input view for students"""
+        c = t()
+        is_compact = page.width < 600 if page.width else False
+        content_width = 280 if is_compact else 400
+        
+        # Main column for attendance input
+        main_column = ft.Column(
+            [
+                # Header
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Icon(ft.Icons.QR_CODE_2, size=48, color=c["accent"]),
+                            ft.Text(
+                                "Mark Attendance",
+                                size=18,
+                                weight=ft.FontWeight.W_600,
+                                color=c["text_primary"],
+                            ),
+                            ft.Text(
+                                "Scan QR code or enter code from your instructor",
+                                size=12,
+                                color=c["text_secondary"],
+                            ),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=8,
+                    ),
+                    padding=20,
+                ),
+                
+                # Info card
+                ft.Container(
+                    content=ft.Row(
+                        [
+                            ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=c["info"]),
+                            ft.Column(
+                                [
+                                    ft.Text(
+                                        "Your instructor will provide an attendance code",
+                                        size=11,
+                                        color=c["text_secondary"],
+                                    ),
+                                    ft.Text(
+                                        "Codes are typically valid for 10 minutes",
+                                        size=11,
+                                        color=c["text_hint"],
+                                    ),
+                                ],
+                                spacing=2,
+                                expand=True,
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                    bgcolor=c["bg_card"],
+                    padding=12,
+                    border_radius=8,
+                    border=ft.border.all(1, c["border"]) if page.theme_mode == ft.ThemeMode.LIGHT else None,
+                ),
+                
+                ft.Container(height=24),
+                
+                # Manual code entry
+                ft.Container(
+                    width=content_width,
+                    content=ft.Row(
+                        [
+                            ft.TextField(
+                                ref=attendance_code_field,
+                                hint_text="Enter attendance code...",
+                                border_radius=10,
+                                border_color=c["border"],
+                                focused_border_color=c["accent"],
+                                text_style=ft.TextStyle(color=c["text_primary"]),
+                                cursor_color=c["accent"],
+                                expand=True,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.CHECK,
+                                icon_color="#ffffff",
+                                bgcolor=c["accent"],
+                                on_click=submit_attendance_code,
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                ),
+                
+                ft.Container(height=20),
+            ],
+            spacing=8 if is_compact else 12,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        
+        # Center the main column and allow scrolling on small screens
+        return ft.Container(
+            alignment=ft.alignment.top_center,
+            content=main_column,
+            expand=True,
+            padding=ft.padding.symmetric(
+                horizontal=16 if is_compact else 24,
+                vertical=16 if is_compact else 24,
+            ),
+        )
+    
     def build_timetable_view():
         c = t()
         # For students, show only their own classes; otherwise show all room schedules
@@ -1659,21 +1853,6 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                 ], spacing=0)
             )
         
-        # Legend
-        legend = ft.Container(
-            content=ft.Row([
-                ft.Container(width=12, height=12, bgcolor=c["accent"], border_radius=3),
-                ft.Text("Scheduled Class", size=10, color=c["text_secondary"]),
-                ft.Container(width=12),
-                ft.Container(width=12, height=12, bgcolor=c["info"], border_radius=3, visible=is_student),
-                ft.Text("My Personal Class", size=10, color=c["text_secondary"], visible=is_student),
-                ft.Container(width=12, visible=is_student),
-                ft.Icon(ft.Icons.ACCESS_TIME, size=12, color=c["text_hint"]),
-                ft.Text("Time shown at start & end", size=10, color=c["text_hint"]),
-            ], spacing=6, alignment=ft.MainAxisAlignment.CENTER),
-            padding=ft.padding.symmetric(vertical=10),
-        )
-        
         # Main timetable
         timetable = ft.Row([
             ft.Column([
@@ -1719,14 +1898,11 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
 
         student_sections = [
             ft.Container(height=14),
-            _section("Scheduled Classes", scheduled_classes, "No scheduled classes yet."),
-            ft.Container(height=10),
             _section("My Personal Classes", personal_classes, "No personal classes yet."),
         ]
 
         return ft.Column(
             [
-                legend,
                 ft.Container(
                     content=timetable,
                     expand=True,
