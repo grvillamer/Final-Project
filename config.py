@@ -6,6 +6,12 @@ import os
 from typing import Any
 from pathlib import Path
 
+# Setup database directory
+BASE_DIR = Path(__file__).parent
+STORAGE_DIR = BASE_DIR / 'storage'
+DATA_DIR = STORAGE_DIR / 'data'
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 # Try to load .env file if python-dotenv is available
 try:
     from dotenv import load_dotenv
@@ -44,7 +50,7 @@ class Config:
     PASSWORD_HISTORY_COUNT: int = int(os.getenv('PASSWORD_HISTORY_COUNT', '5'))
     
     # Database
-    DATABASE_PATH: str = os.getenv('DATABASE_PATH', 'spotted.db')
+    DATABASE_PATH: str = os.getenv('DATABASE_PATH', str(DATA_DIR / 'spotted.db'))
 
     # Google OAuth (Sign in with Google) — Desktop / localhost redirect flow
     GOOGLE_CLIENT_ID: str = os.getenv('GOOGLE_CLIENT_ID', '')
