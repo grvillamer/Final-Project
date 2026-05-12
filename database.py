@@ -586,9 +586,6 @@ class Database:
             # Delete user's enrollments
             cursor.execute('DELETE FROM enrollments WHERE student_id = ?', (user_id,))
             
-            # Delete user's sync queue items
-            cursor.execute('DELETE FROM sync_queue WHERE user_id = ?', (user_id,))
-
             # Delete user sessions and activity logs
             cursor.execute('DELETE FROM user_sessions WHERE user_id = ?', (user_id,))
             cursor.execute('DELETE FROM user_activity WHERE user_id = ?', (user_id,))

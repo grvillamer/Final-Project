@@ -394,6 +394,7 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
         rv = get_responsive_values()
         password_field = ft.Ref[ft.TextField]()
         error_text = ft.Ref[ft.Text]()
+        delete_btn = ft.Ref[ft.ElevatedButton]()
         
         def close_dialog(e):
             dialog.open = False
@@ -408,43 +409,63 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                 page.update()
                 return
             
-            # Verify password
-            verified_user = db.authenticate_user(student_id, password)
-            if not verified_user:
-                error_text.current.value = "Incorrect password"
-                error_text.current.visible = True
-                page.update()
-                return
+            # Show loading state
+            delete_btn.current.disabled = True
+            delete_btn.current.text = "Deleting..."
+            page.update()
             
-            # Delete the account
-            success = db.delete_user(user_id)
-            
-            if success:
-                dialog.open = False
-                page.snack_bar = ft.SnackBar(
-                    content=ft.Row([
-                        ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
-                        ft.Text("Account deleted successfully", color="#ffffff"),
-                    ], spacing=8),
-                    bgcolor=c["success"],
-                )
-                page.snack_bar.open = True
-                page.update()
+            try:
+                # Verify password
+                verified_user = db.authenticate_user(student_id, password)
+                if not verified_user:
+                    error_text.current.value = "Incorrect password"
+                    error_text.current.visible = True
+                    delete_btn.current.disabled = False
+                    delete_btn.current.text = "Delete Account"
+                    page.update()
+                    return
                 
-                # Logout
-                if on_logout:
-                    on_logout()
-            else:
-                error_text.current.value = "Failed to delete account. Please try again."
+                # Delete the account
+                success = db.delete_user(user_id)
+                
+                if success:
+                    dialog.open = False
+                    page.snack_bar = ft.SnackBar(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.CHECK_CIRCLE, color="#ffffff", size=18),
+                            ft.Text("Account deleted successfully", color="#ffffff"),
+                        ], spacing=8),
+                        bgcolor=c["success"],
+                    )
+                    page.snack_bar.open = True
+                    page.update()
+                    
+                    # Logout to clear session
+                    if on_logout:
+                        on_logout()
+                else:
+                    error_text.current.value = "Failed to delete account. Please try again."
+                    error_text.current.visible = True
+                    delete_btn.current.disabled = False
+                    delete_btn.current.text = "Delete Account"
+                    page.update()
+            except Exception as ex:
+                print(f"Error deleting account: {ex}")
+                error_text.current.value = f"Error: {str(ex)}"
                 error_text.current.visible = True
+                delete_btn.current.disabled = False
+                delete_btn.current.text = "Delete Account"
                 page.update()
+        
+        is_mobile = (page.width or 400) < 600
+        dialog_width = rv["dialog_width"]
         
         dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row([
                 ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color=c["error"], size=24),
                 ft.Text("Delete Account", size=rv["font_title"], weight=ft.FontWeight.W_600, color=c["error"]),
-            ], spacing=8),
+            ], spacing=8, wrap=True),
             content=ft.Container(
                 content=ft.Column([
                     ft.Text(
@@ -453,11 +474,11 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                     ),
                     ft.Container(height=8),
                     ft.Row([ft.Icon(ft.Icons.CLOSE, size=14, color=c["error"]), 
-                           ft.Text("Profile information", size=12, color=c["text_secondary"])], spacing=8),
+                           ft.Text("Profile information", size=12, color=c["text_secondary"])], spacing=8, wrap=True),
                     ft.Row([ft.Icon(ft.Icons.CLOSE, size=14, color=c["error"]), 
-                           ft.Text("Class schedules", size=12, color=c["text_secondary"])], spacing=8),
+                           ft.Text("Class schedules", size=12, color=c["text_secondary"])], spacing=8, wrap=True),
                     ft.Row([ft.Icon(ft.Icons.CLOSE, size=14, color=c["error"]), 
-                           ft.Text("All settings", size=12, color=c["text_secondary"])], spacing=8),
+                           ft.Text("All settings", size=12, color=c["text_secondary"])], spacing=8, wrap=True),
                     ft.Container(height=16),
                     ft.Text("", ref=error_text, size=12, color=c["error"], visible=False),
                     ft.TextField(
@@ -465,21 +486,28 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                         label="Enter your password to confirm",
                         password=True, can_reveal_password=True,
                         border_color=c["border"], focused_border_color=c["error"],
-                        text_style=ft.TextStyle(color=c["text_primary"]),
+                        text_style=ft.TextStyle(color=c["text_primary"], size=rv["font_body"]),
                         label_style=ft.TextStyle(color=c["text_secondary"]),
                         cursor_color=c["error"], border_radius=8,
                     ),
-                ], spacing=4),
-                width=rv["dialog_width"],
+                ], spacing=4, tight=True),
+                width=dialog_width,
+                padding=rv["button_padding"],
             ),
             actions=[
                 ft.TextButton("Cancel", on_click=close_dialog, style=ft.ButtonStyle(color=c["text_secondary"])),
-                ft.ElevatedButton("Delete Account", bgcolor=c["error"], color="#ffffff",
+                ft.ElevatedButton(
+                    ref=delete_btn,
+                    text="Delete Account", 
+                    bgcolor=c["error"], 
+                    color="#ffffff",
                     style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    on_click=confirm_delete),
+                    on_click=confirm_delete,
+                ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
-            bgcolor=c["bg_card"], shape=ft.RoundedRectangleBorder(radius=16),
+            bgcolor=c["bg_card"], 
+            shape=ft.RoundedRectangleBorder(radius=16),
         )
         
         page.overlay.append(dialog)
