@@ -22,8 +22,9 @@ def BuildingRoomsPage(
 ) -> ft.Control:
     c = get_theme(page)
 
-    is_instructor = user.get("role") == "instructor"
-    is_admin = user.get("role") == "admin"
+    role = str(user.get("role", "student") or "student").strip().lower()
+    is_instructor = role == "instructor"
+    is_admin = role == "admin"
 
     search_value = {"value": ""}
     floor_value = {"value": "all"}
@@ -198,11 +199,11 @@ def BuildingRoomsPage(
                                         padding=ft.padding.symmetric(horizontal=8, vertical=4),
                                         border_radius=6,
                                     ),
-                                    ft.Text(instructor_name, size=10, color=c["text_hint"]) if instructor_name else ft.SizedBox(),
+                                    ft.Text(instructor_name, size=10, color=c["text_hint"]) if instructor_name else ft.Container(),
                                 ],
                                 spacing=8,
                                 wrap=True,
-                            ) if status_text else ft.SizedBox(),
+                            ) if status_text else ft.Container(),
                         ],
                         spacing=3,
                         expand=True,
@@ -253,7 +254,7 @@ def BuildingRoomsPage(
                                 bgcolor=status_color,
                                 padding=ft.padding.symmetric(horizontal=10, vertical=6),
                                 border_radius=6,
-                            ) if status_text else ft.SizedBox(),
+                            ) if status_text else ft.Container(),
                         ],
                         spacing=3,
                         expand=True,

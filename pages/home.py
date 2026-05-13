@@ -27,7 +27,8 @@ def HomePage(page: ft.Page, user: dict, on_navigate=None):
     user_name = user.get("first_name", "User")
     initials = get_initials(user.get("first_name", ""), user.get("last_name", ""))
     student_id = user.get("student_id", "")
-    is_instructor = user.get("role") == "instructor"
+    role = str(user.get("role", "student") or "student").strip().lower()
+    is_instructor = role == "instructor"
     user_id = user.get("id")
 
     profile_picture = db.get_setting(user_id, "profile_picture", "") or None if user_id else None

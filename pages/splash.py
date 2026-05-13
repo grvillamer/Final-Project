@@ -1,5 +1,5 @@
 """
-Smart Classroom Availability and Locator App for CSPC STUDNETS - Splash Screen
+Smart Classroom Availability and Locator App for CSPC STUDENTS - Splash Screen
 """
 import flet as ft
 import asyncio
@@ -26,7 +26,7 @@ def SplashPage(page: ft.Page, on_complete=None):
                 ft.Container(
                     content=ft.Column(
                         controls=[
-                            # CSPC STUDNETS Logo
+                            # CSPC STUDENTS Logo
                             ft.Container(
                                 content=ft.Text(
                                     "🏫",
@@ -49,7 +49,7 @@ def SplashPage(page: ft.Page, on_complete=None):
                             ),
                             ft.Container(
                                 content=ft.Text(
-                                    "for CSPC STUDNETS",
+                                    "for CSPC STUDENTS",
                                     size=18,
                                     weight=ft.FontWeight.W_500,
                                     color="#8b95a5",

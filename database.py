@@ -301,6 +301,7 @@ class Database:
         try:
             cursor = self.conn.cursor()
             password_hash = self._hash_password(password)
+            role = str(role or "student").strip().lower()
             cursor.execute('''
                 INSERT INTO users (student_id, email, password_hash, first_name, last_name, role, password_changed_at)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -721,6 +722,7 @@ class Database:
     
     def change_user_role(self, user_id: int, new_role: str) -> bool:
         """Change user role (admin function)"""
+        new_role = str(new_role or '').strip().lower()
         valid_roles = ['student', 'instructor', 'admin']
         if new_role not in valid_roles:
             return False

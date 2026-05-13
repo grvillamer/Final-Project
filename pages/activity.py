@@ -57,7 +57,7 @@ def ActivityPage(page: ft.Page, user: dict, on_navigate=None):
                 "icon": ft.Icons.VISIBILITY,
                 "color": "#9C27B0",
                 "title": "Viewed room availability",
-                "subtitle": "CSPC STUDNETS Building rooms",
+                "subtitle": "CSPC STUDENTS Building rooms",
                 "time": (datetime.now() - timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"),
             },
             {

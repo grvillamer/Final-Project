@@ -59,7 +59,8 @@ class AuthService:
         if existing:
             return False, None, "Email already registered"
         
-        # Create user
+        # Normalize and create user
+        role = str(role or "student").strip().lower()
         user_id = db.create_user(
             student_id=student_id,
             email=email,

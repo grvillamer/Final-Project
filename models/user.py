@@ -44,13 +44,14 @@ class User:
     @classmethod
     def from_dict(cls, data: dict) -> "User":
         """Create User from dictionary"""
+        role = str(data.get('role', 'student') or 'student').strip().lower()
         return cls(
             id=data.get('id', 0),
             student_id=data.get('student_id', ''),
             email=data.get('email', ''),
             first_name=data.get('first_name', ''),
             last_name=data.get('last_name', ''),
-            role=data.get('role', 'student'),
+            role=role,
             profile_image=data.get('profile_image'),
             created_at=data.get('created_at'),
             updated_at=data.get('updated_at'),

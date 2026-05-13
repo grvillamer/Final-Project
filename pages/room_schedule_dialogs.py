@@ -26,8 +26,9 @@ def show_set_class_dialog(
     """Show dialog for instructors/admins to set up a class schedule for a room."""
     c = get_theme(page)
 
-    is_instructor = user.get("role") == "instructor"
-    is_admin = user.get("role") == "admin"
+    role = str(user.get("role", "student") or "student").strip().lower()
+    is_instructor = role == "instructor"
+    is_admin = role == "admin"
     user_id = user.get("id")
 
     if not (is_instructor or is_admin):
@@ -57,6 +58,7 @@ def show_set_class_dialog(
         ft.dropdown.Option("Thursday", "Thursday"),
         ft.dropdown.Option("Friday", "Friday"),
         ft.dropdown.Option("Saturday", "Saturday"),
+        ft.dropdown.Option("Sunday", "Sunday"),
     ]
 
     time_options = []
