@@ -159,17 +159,6 @@
 - [ ] Attendance records saved
 - [ ] User session maintained (optional)
 
-## 11. Campus Map (ONGOING)
-
-- [ ] Map page loads successfully
-- [ ] Building search functionality works
-- [ ] Building cards display correctly
-- [ ] Tap building card navigates to building rooms
-- [ ] Search filters buildings
-- [ ] No results message shows when needed
-- [ ] Campus map image displays properly
-- [ ] All academic buildings listed
-
 ---
 
 ## Test Results Summary
