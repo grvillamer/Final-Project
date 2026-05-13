@@ -872,7 +872,7 @@ def SettingsPage(page: ft.Page, user: dict, on_navigate=None, on_logout=None):
                                         alignment=ft.alignment.center,
                                     ),
                                     ft.Text("Smart Classroom Team", size=rv["font_body"], color=c["text_primary"], weight=ft.FontWeight.W_600, text_align=ft.TextAlign.CENTER),
-                                    ft.Text("CCS Development Team", size=max(10, rv["font_body"] - 2), color=c["text_hint"], text_align=ft.TextAlign.CENTER),
+                                    ft.Text("CSPC STUDNETS Development Team", size=max(10, rv["font_body"] - 2), color=c["text_hint"], text_align=ft.TextAlign.CENTER),
                                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8),
                                 col=12,
                                 alignment=ft.alignment.center,

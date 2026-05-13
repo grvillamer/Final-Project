@@ -1257,7 +1257,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
                         ft.Dropdown(
                             ref=day_ref,
                             value=initial_day,
-                            options=[ft.dropdown.Option(d) for d in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]],
+                            options=[ft.dropdown.Option(d) for d in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]],
                             border_radius=10,
                             border_color=c["border"],
                             focused_border_color=c["accent"],
@@ -1673,7 +1673,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
         # For students, show only their own classes; otherwise show all room schedules
         schedules = get_student_schedules() if is_student else get_all_class_schedules()
         
-        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         
         # Time range: 7:00 AM to 5:00 PM (in 30-min increments for better precision)
         start_hour = 7
@@ -1937,7 +1937,7 @@ def SchedulePage(page: ft.Page, user: dict, on_navigate=None):
             )
         
         # Group by day
-        days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         schedules_by_day = {day: [] for day in days_order}
         
         for sched in schedules:
