@@ -1,11 +1,77 @@
 """
 SpottEd Activity Page - Recent Activity and History
 """
+from collections import defaultdict
+
 import flet as ft
 from database import db
 from datetime import datetime, timedelta
-from utils.helpers import get_initials, time_ago
+from utils.helpers import time_ago
 from utils.theme import get_theme
+
+
+def _consolidate_instructor_schedule_rows(schedules: list) -> list:
+    """
+    Merge recurring weekly room_schedules (same room, subject, time, notes)
+    into one summary row for activity/history display.
+    """
+    if not schedules:
+        return []
+
+    groups = defaultdict(list)
+    for sched in schedules:
+        key = (
+            sched.get("room_id"),
+            (sched.get("subject_name") or "").strip(),
+            (sched.get("start_time") or "").strip(),
+            (sched.get("end_time") or "").strip(),
+            (sched.get("notes") or "").strip(),
+        )
+        groups[key].append(sched)
+
+    merged = []
+    for items in groups.values():
+        items_sorted = sorted(items, key=lambda x: x.get("schedule_date") or "")
+        first = items_sorted[0]
+        last = items_sorted[-1]
+        n = len(items_sorted)
+
+        day_label = ""
+        notes = first.get("notes") or ""
+        if "Day:" in notes:
+            try:
+                day_label = notes.split("Day:")[1].split("|")[0].strip()
+            except Exception:
+                pass
+
+        base_sub = (
+            f"{first.get('room_name', 'Room')} • "
+            f"{first.get('start_time', '')} - {first.get('end_time', '')}"
+        )
+        if n > 1:
+            extra = f" • {n} weekly sessions"
+            if day_label:
+                extra += f" ({day_label})"
+            subtitle = base_sub + extra
+            # Right column: show span so one card reads as one booking
+            time_label = f"{first.get('schedule_date', '')} → {last.get('schedule_date', '')}"
+        else:
+            subtitle = base_sub
+            time_label = first.get("schedule_date", "") or ""
+
+        merged.append(
+            {
+                "subject_name": first.get("subject_name", "Class"),
+                "subtitle": subtitle,
+                "time": time_label,
+                "_sort_date": last.get("schedule_date") or "",
+            }
+        )
+
+    merged.sort(key=lambda x: x.get("_sort_date") or "", reverse=True)
+    for m in merged:
+        m.pop("_sort_date", None)
+    return merged
 
 
 def ActivityPage(page: ft.Page, user: dict, on_navigate=None):
@@ -27,17 +93,17 @@ def ActivityPage(page: ft.Page, user: dict, on_navigate=None):
     def get_activities():
         activities = []
         
-        # Get user's recent schedules
+        # Instructor: one activity row per recurring series (same room/subject/time/notes)
         if is_instructor:
             schedules = db.get_instructor_schedules(user_id)
-            for sched in schedules[:10]:
+            for row in _consolidate_instructor_schedule_rows(schedules)[:10]:
                 activities.append({
                     "type": "schedule",
                     "icon": ft.Icons.EVENT,
                     "color": "#4CAF50",
-                    "title": f"Scheduled: {sched.get('subject_name', 'Class')}",
-                    "subtitle": f"{sched.get('room_name', 'Room')} • {sched.get('start_time', '')} - {sched.get('end_time', '')}",
-                    "time": sched.get('schedule_date', ''),
+                    "title": f"Scheduled: {row['subject_name']}",
+                    "subtitle": row["subtitle"],
+                    "time": row["time"],
                 })
         
         # Add login activity
