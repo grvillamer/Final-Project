@@ -1489,9 +1489,9 @@ class Database:
 
         ab3_rooms.extend(
             [
-                ("Bloom (FSM Lab 1)", "AB3-BLOOM-FSM1", building, "2nd", 40),
-                ("Bronfenbrenner (FSM Lab 2)", "AB3-FSM-LAB2", building, "2nd", 40),
-                ("Bruner (ELX Lab)", "AB3-BRUNER-ELX", building, "2nd", 40),
+                ("Bloom (FSM Lab 1)", "AB3-BLOOM-FSM-LAB-1", building, "2nd", 40),
+                ("Bronfenbrenner (FSM Lab 2)", "AB3-BRONFENBRENNER-FSM-LAB-2", building, "2nd", 40),
+                ("Bruner (ELX Lab)", "AB3-BRUNER-ELX-LAB", building, "2nd", 40),
                 ("AB3 L003", "AB3-L003", building, "2nd", 40),
                 ("AB3 L004", "AB3-L004", building, "2nd", 40),
             ]

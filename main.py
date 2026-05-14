@@ -543,18 +543,6 @@ def main(page: ft.Page):
 
 # Run the app
 if __name__ == "__main__":
-    import asyncio
-    import sys
-
-    # Windows: default ProactorEventLoop can log "Event loop is closed" in __del__ for
-    # pipe transports on shutdown—especially when launching from IPython/Jupyter.
-    # Selector policy is stable for Flet desktop; prefer `python main.py` over `%run` in IPython.
-    if sys.platform == "win32":
-        try:
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        except Exception:
-            pass
-
     # Use ft.app() for this Flet version
     # - Desktop: python main.py
     # - Web: python main.py (or set view/port as needed)
