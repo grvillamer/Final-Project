@@ -187,6 +187,9 @@ class Database:
         
         # Initialize default classrooms if empty
         self._init_classrooms()
+        self._ensure_green_building_classrooms()
+        self._ensure_academic_building_ii_classrooms()
+        self._ensure_academic_building_iii_classrooms()
 
     def _migrate_google_oauth_columns(self):
         """Add Google account linking columns for OAuth sign-in."""
@@ -1412,6 +1415,106 @@ class Database:
                     VALUES (?, ?, ?, ?, ?)
                 ''', (name, code, building, floor, capacity))
         
+        self.conn.commit()
+
+    def _ensure_green_building_classrooms(self):
+        """Add Green Building (GB) rooms if missing; building name matches Home directory."""
+        cursor = self.conn.cursor()
+        building = "GREEN BUILDING"
+        green_rooms = []
+        for n in range(101, 106):
+            green_rooms.append((f"GB {n}", f"GB-{n}", building, "1st", 40))
+        for n in range(201, 206):
+            green_rooms.append((f"GB {n}", f"GB-{n}", building, "2nd", 40))
+        for n in range(301, 307):
+            green_rooms.append((f"GB {n}", f"GB-{n}", building, "3rd", 40))
+
+        for name, code, bld, floor, capacity in green_rooms:
+            cursor.execute("SELECT 1 FROM classrooms WHERE code = ?", (code,))
+            if cursor.fetchone():
+                continue
+            cursor.execute(
+                """
+                INSERT INTO classrooms (name, code, building, floor, capacity)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, code, bld, floor, capacity),
+            )
+        self.conn.commit()
+
+    def _ensure_academic_building_ii_classrooms(self):
+        """Add Academic Building II (AB2) rooms if missing; matches Home directory name."""
+        cursor = self.conn.cursor()
+        building = "ACADEMIC BUILDING - II"
+        ab2_rooms = []
+
+        for n in range(1, 11):
+            num = f"{n:03d}"
+            ab2_rooms.append((f"AB2 R{num}", f"AB2-R{num}", building, "1st", 40))
+
+        ab2_rooms.extend(
+            [
+                ("Pearl Function Hall", "AB2-PEARL-FH", building, "2nd", 120),
+                ("CSPC Travel Office", "AB2-TRAVEL-OFFICE", building, "2nd", 15),
+                ("Laboratory", "AB2-LABORATORY", building, "2nd", 40),
+            ]
+        )
+
+        for n in range(11, 17):
+            num = f"{n:03d}"
+            ab2_rooms.append((f"AB2 R{num}", f"AB2-R{num}", building, "3rd", 40))
+
+        for name, code, bld, floor, capacity in ab2_rooms:
+            cursor.execute("SELECT 1 FROM classrooms WHERE code = ?", (code,))
+            if cursor.fetchone():
+                continue
+            cursor.execute(
+                """
+                INSERT INTO classrooms (name, code, building, floor, capacity)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, code, bld, floor, capacity),
+            )
+        self.conn.commit()
+
+    def _ensure_academic_building_iii_classrooms(self):
+        """Add Academic Building III (AB3) rooms if missing; matches Home directory name."""
+        cursor = self.conn.cursor()
+        building = "ACADEMIC BUILDING - III"
+        ab3_rooms = []
+
+        for n in range(1, 6):
+            num = f"{n:03d}"
+            ab3_rooms.append((f"AB3 R{num}", f"AB3-R{num}", building, "1st", 40))
+
+        ab3_rooms.extend(
+            [
+                ("Bloom (FSM Lab 1)", "AB3-BLOOM-FSM1", building, "2nd", 40),
+                ("Bronfenbrenner (FSM Lab 2)", "AB3-FSM-LAB2", building, "2nd", 40),
+                ("Bruner (ELX Lab)", "AB3-BRUNER-ELX", building, "2nd", 40),
+                ("AB3 L003", "AB3-L003", building, "2nd", 40),
+                ("AB3 L004", "AB3-L004", building, "2nd", 40),
+            ]
+        )
+
+        for n in range(6, 12):
+            num = f"{n:03d}"
+            ab3_rooms.append((f"AB3 R{num}", f"AB3-R{num}", building, "3rd", 40))
+
+        for n in range(401, 408):
+            ab3_rooms.append((f"CB {n}", f"AB3-CB-{n}", building, "4th", 40))
+
+        for name, code, bld, floor, capacity in ab3_rooms:
+            cursor.execute("SELECT 1 FROM classrooms WHERE code = ?", (code,))
+            if cursor.fetchone():
+                continue
+            cursor.execute(
+                """
+                INSERT INTO classrooms (name, code, building, floor, capacity)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, code, bld, floor, capacity),
+            )
         self.conn.commit()
     
     def get_all_classrooms(self) -> List[Dict]:
