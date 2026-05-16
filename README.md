@@ -1,8 +1,8 @@
-# Smart Classroom - Access Control System
+# SpottEd (Smart Classroom) — Access Control System
 
-A secure cross-platform classroom management application with **Access Control System** built with **Flet** (Python + Flutter rendering) for Camarines Sur Polytechnic Colleges (CSPC) - College of Computer Studies (CCS).
+**SpottEd** is a secure cross-platform classroom availability and locator app built with **Flet** (Python + Flutter rendering) for Camarines Sur Polytechnic Colleges (CSPC) — College of Computer Studies (CCS).
 
-**Information Assurance Final Project** - Implements secure authentication, RBAC, and security controls.
+**Information Assurance Final Project** — Implements secure authentication, RBAC, audit logging, and security controls.
 
 ![Platform](https://img.shields.io/badge/Platform-Desktop%20%7C%20Web%20%7C%20Mobile-blue)
 ![Python](https://img.shields.io/badge/Python-3.11+-green)
@@ -11,31 +11,43 @@ A secure cross-platform classroom management application with **Access Control S
 
 ## 🎯 Project Overview
 
-Smart Classroom Availability and Locator App for CCS is a comprehensive classroom management system designed for the College of Computer Studies at CSPC. It allows students to view room availability and helps instructors manage their class schedules and room bookings.
+SpottEd helps students find available classrooms across campus buildings and helps instructors set recurring class schedules per room. The app uses a **building-first** navigation flow: browse buildings on Home, open a building to see its rooms, then search or filter by floor.
 
 ### Core Features
 
-- 🔐 **User Authentication** - Secure login, registration, and password reset with CSPC email
-- 🏫 **Classroom Management** - View all CCS building rooms across 4 floors
-- 📅 **Room Scheduling** - Instructors can book and manage room schedules
-- 🔍 **Room Search & Filters** - Search by name, code, building; filter by floor, type, status
-- 📊 **Real-time Availability** - See which rooms are available, occupied, or under maintenance
-- 💾 **Offline-First Storage** - SQLite database with sync capability
-- 🎨 **Modern UI** - Beautiful, responsive interface with light/dark themes
+- 🔐 **User Authentication** — Login, registration, and password reset with CSPC email validation
+- 🏛️ **Building Directory** — Home lists campus buildings; tap a building to view its rooms
+- 🗺️ **Campus Map** — Map tab with building search and quick navigation to room lists
+- 📅 **Room Scheduling** — Instructors/admins set weekly recurring classes per room (semester-based)
+- 📆 **Class Schedule** — Timetable view, QR attendance tab, and (for students) personal vs. official class sections
+- 📜 **Activity History** — Recent actions; instructor recurring bookings show as **one consolidated entry**
+- 🔍 **Room Search & Filters** — Search rooms by name/code; filter by floor within a building
+- 📊 **Room Status** — Available, occupied, or under maintenance
+- 💾 **Local Data** — SQLite with optional sync queue design; PostgreSQL migration planned for production
+- 🎨 **Responsive UI** — Light/dark themes; desktop, web, and mobile layouts
 
-### CCS Building Rooms
+### Bottom Navigation
 
-**1st Floor (Ground):**
-- Lecture Room 1-6
+| Tab | Purpose |
+|-----|---------|
+| **Home** | Building directory and room counts |
+| **Map** | Campus map image + building search |
+| **Activity** | Recent activity and booking history |
+| **Schedule** | Timetable, QR attendance, personal schedule (students) |
+| **Settings** | Profile, appearance, privacy, and app preferences |
 
-**2nd Floor:**
-- Faculty Room, Dean's Office, Repair Room, Mac Lab, Open Lab
+### Campus Buildings (Home)
 
-**3rd Floor:**
-- IT Lab 1, IT Lab 2, ERP Lab, CS Lab
+| Building | Seeded rooms (examples) |
+|----------|-------------------------|
+| **ACADEMIC BUILDING - I** | Classrooms ACAD 001–004 |
+| **ACADEMIC BUILDING - II** | AB2 R001–R010 (1st); Pearl Function Hall, CSPC Travel Office, Laboratory (2nd); AB2 R011–R016 (3rd) |
+| **ACADEMIC BUILDING - III** | AB3 R001–R005 (1st); Bloom/Bronfenbrenner/Bruner labs + L003–L004 (2nd); AB3 R006–R011 (3rd); CB 401–407 (4th) |
+| **ACADEMIC BUILDING - IV** | Lecture rooms, labs, offices (multi-floor) |
+| **ACADEMIC BUILDING - V** | *(rooms can be added via database seed)* |
+| **GREEN BUILDING** | GB 101–105 (1st), GB 201–205 (2nd), GB 301–306 (3rd) |
 
-**4th Floor:**
-- Rise Lab, Research Room, LIS Lab, NAS Lab
+Additional rooms (e.g. **CCS Building**) are initialized on first database setup. New building rooms are added automatically on startup when missing (`database.py` seed helpers).
 
 ## 📁 Project Structure
 
@@ -75,11 +87,18 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 │   ├── login.py           # Login page
 │   ├── register.py        # Registration page
 │   ├── forgot_password.py # Password reset
-│   ├── home.py            # Dashboard with room list
-│   ├── activity.py        # Recent activity page
-│   ├── schedule.py        # Class schedule page
+│   ├── home.py            # Building directory (Home)
+│   ├── building_rooms.py  # Rooms per building (search, floor filter, set class)
+│   ├── map.py             # Campus map + building search
+│   ├── activity.py        # Recent activity (consolidated instructor history)
+│   ├── schedule.py        # Class schedule (timetable + QR attendance)
+│   ├── room_schedule_dialogs.py  # Set class / recurring schedule dialog
 │   ├── settings.py        # Settings & profile
-│   └── admin.py           # Admin user management (RBAC)
+│   ├── admin.py           # Admin user management (RBAC)
+│   ├── audit_logs.py      # Security audit log viewer (admin)
+│   ├── attendance.py      # Attendance views
+│   ├── classes.py         # Class management pages
+│   └── analytics.py       # Attendance analytics
 │
 ├── /components            # Reusable UI components
 │   ├── navigation.py      # Navigation components
@@ -112,17 +131,23 @@ Smart Classroom Availability and Locator App for CCS is a comprehensive classroo
 
 1. **Clone or download the project**
 
-2. **Install runtime dependencies:**
+2. **Create a virtual environment (recommended on Windows):**
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+3. **Install runtime dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. *(Optional)* **Install development dependencies (tests, linting, formatting):**
+4. *(Optional)* **Install development dependencies (tests, linting, formatting):**
    ```bash
    pip install -r dev-requirements.txt
    ```
 
-4. **Run the application:**
+5. **Run the application:**
    ```bash
    flet run main.py
    ```
@@ -228,8 +253,7 @@ The test suite includes:
 
 ## 👤 About Admin
 
-The **Admin** interface (User Management) is only available to users with the **Administrator** role.  
-**Open:** **Settings → Admin Panel → User Management**.
+The **Admin** interface (User Management) is only available to users with the **Administrator** role (`pages/admin.py`). Administrators can also set room schedules like instructors.
 
 ### What the admin can do
 - **User list** – View all users (admins, instructors, students); search by name, student ID, or email
@@ -252,22 +276,25 @@ The **Admin** interface (User Management) is only available to users with the **
 - Login with CSPC email
 - Password reset via email verification
 
-### 2. Room Browsing (All Users)
-- View all CCS building rooms
-- Search by room name, code, or building
-- Filter by floor (1st-4th), type (Lecture/Lab), status (Available/Occupied)
-- View room details and schedules
+### 2. Building & Room Browsing (All Users)
+- **Home** → select a building (e.g. Green Building, Academic Building II)
+- **Building rooms** → search rooms, filter by floor, view status
+- **Map** → search buildings and open the same room list
 
-### 3. Room Booking (Instructor Only)
-- Book available rooms for classes
-- Set subject name, date, start/end time
-- Edit or delete existing bookings
-- System prevents scheduling conflicts
+### 3. Room Scheduling (Instructor / Admin)
+- Open a room → **Set Class**
+- Choose subject, day, time, section, and semester
+- System creates **weekly recurring** `room_schedules` for the semester
+- Conflicting slots are skipped; success message shows how many sessions were created
 
-### 4. Schedule Management
-- View daily schedule of all rooms
-- Navigate between dates
-- See which rooms are free at specific times
+### 4. Schedule Page
+- **Timetable** — weekly grid of classes
+- **QR Code** — instructors generate attendance codes; students scan or enter manually
+- **Students** — separate **Scheduled Classes** and **My Personal Classes** sections; add personal blocks only visible to you
+
+### 5. Activity (History)
+- Shows recent logins, views, and instructor bookings
+- Recurring class sets appear as **one activity card** (same room, subject, time, notes) with date range and session count — not one row per week
 
 ## 🔧 Technical Details
 
@@ -336,14 +363,15 @@ This application implements comprehensive security controls for the Information 
 - ✅ Functional, usable interface
 
 ### Features
-- ✅ Clear problem-driven purpose (Classroom availability for CCS)
-- ✅ 3+ core user flows
+- ✅ Clear problem-driven purpose (Campus classroom availability for CSPC)
+- ✅ 3+ core user flows (auth, building/room browse, schedule/attendance)
 - ✅ Stateful UI with reactive updates
-- ✅ Persistent data layer
+- ✅ Persistent data layer (SQLite; PostgreSQL migration planned)
 - ✅ Error handling & validation
-- ✅ Multi-page navigation
+- ✅ Multi-page navigation with bottom nav + building drill-down
 - ✅ Settings/configuration panel
 - ✅ Theme support (Light/Dark mode)
+- ✅ Campus map and multi-building room directory
 
 ### Enhancements Implemented
 1. **Multi-platform deploy** - Desktop, Web, Mobile support
@@ -353,30 +381,29 @@ This application implements comprehensive security controls for the Information 
 
 ## 🆕 What's New in V2.0
 
-This version upgrades the original V1 "it works" prototype into a more robust and showcase-ready release:
+This version upgrades the original V1 prototype into a more robust, campus-wide release:
+
+- **Building-first navigation** — Home shows buildings; rooms open in `building_rooms.py`
+- **Map tab** — Dedicated campus map page with building search
+- **Expanded room database** — Green Building, Academic Building II & III (and more) seeded in `database.py`
+- **Recurring semester scheduling** — One “Set Class” action creates weekly sessions for the full semester
+- **Schedule UI** — Timetable + QR Code tabs; student personal vs. official schedules separated
+- **Activity history** — Instructor recurring bookings consolidated into a single history entry
+- **Panel-driven database plan** — SQLite for development; documented path to centralized PostgreSQL
 
 - **Robustness & Reliability**
-  - Improved input validation across authentication, scheduling, and search flows
-  - Friendlier error and feedback messages instead of raw error outputs
-  - Better handling of empty states (no rooms, no schedules, no history)
-  - Loading and progress indicators on long-running operations
+  - Improved validation across authentication, scheduling, and search
+  - Clear empty states and snackbar feedback on actions
+  - Conflict detection when booking rooms
 
 - **UX & Polish**
-  - More consistent layout, spacing, and color usage across all pages
-  - Clear navigation between student, instructor, and admin views
-  - Refined empty-state designs with guidance actions (e.g., set class, create schedule)
-  - Responsive layout that works across common desktop and web viewports
+  - Five-tab bottom navigation (Home, Map, Activity, Schedule, Settings)
+  - Responsive layout for desktop, web, and mobile
+  - Light/dark theme support
 
-- **Feature Depth**
-  - Powerful room search and filtering (by floor, type, and status)
-  - Enhanced classroom and schedule management for instructors
-  - Additional feedback states (success, error, confirmation) on key actions
-  - Strengthened data persistence with an improved SQLite layer
-
-- **Developer Quality & Documentation**
-  - Cleaner, more modular code structure (core, models, services, pages, components)
-  - Expanded test suite (unit + integration + manual checklist)
-  - Overhauled `README` with setup instructions, feature overview, and screenshots
+- **Developer Quality**
+  - Modular pages (`building_rooms`, `room_schedule_dialogs`, `map`, etc.)
+  - Unit + integration tests and manual checklist in `/tests`
 
 ### 🔒 Security Enhancements (Information Assurance Project)
 
